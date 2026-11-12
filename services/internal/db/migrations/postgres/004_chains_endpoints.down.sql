@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS endpoints;
+DROP TYPE IF EXISTS endpoint_kind;
+DROP TABLE IF EXISTS chains;

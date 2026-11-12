@@ -9,5 +9,6 @@ use (
 	./services/flightcheck
 	./services/ingest
 	./services/insights
+	./services/internal/db
 	./services/internal/platform
 )

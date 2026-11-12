@@ -1,5 +1,59 @@
 # Progress
 
+## Task 2 — Data layer and local infrastructure ✅
+
+**Completed: 2026-11-13**
+
+### Schema overview
+
+**Postgres** (6 migration files, fully reversible):
+
+| Table | Purpose |
+|---|---|
+| `orgs` | Organisations with plan tier |
+| `users` | User accounts |
+| `memberships` | Org↔user join table with roles (owner/admin/member/viewer) |
+| `projects` | Projects per org with environment (prod/staging/dev) |
+| `api_keys` | Key hash + prefix only; plaintext never stored; scoped, expiry-aware |
+| `chains` | Supported EVM chains (chain_id, block time, native token) |
+| `endpoints` | RPC/indexer/oracle/custom endpoints per project |
+| `alert_rules` / `alert_channels` / `incidents` | Alert rules, notification channels, incident tracking |
+| `usage_counters` | Daily billing counters (traces, flight checks, API calls) |
+| `audit_log` | Immutable audit trail (action, resource, IP, key) |
+
+**ClickHouse** (5 migration files + materialized views):
+
+| Table | TTL | Rollup view |
+|---|---|---|
+| `chain_heads` | 30 days | `chain_heads_1m` (block max + latency avg per minute) |
+| `endpoint_probes` | 30 days | `endpoint_probes_1m` (count + ok-rate + latency per minute) |
+| `oracle_updates` | 30 days | — |
+| `flight_checks` | 30 days | — |
+| `spans` | 30 days | `spans_1m` (count + avg/p95 latency per service+op per minute) |
+
+### What was built
+
+| Area | Details |
+|---|---|
+| **docker-compose** | Pinned: Postgres 16.9, Redis 7.4.3, ClickHouse 24.12, OTel Collector 0.123.0, Prometheus 3.3.1, Grafana 12.0.1; named volumes, health checks |
+| **OTel Collector** | Config in `deploy/otel/config.yaml`: OTLP gRPC+HTTP receivers → batch → Prometheus exporter |
+| **Prometheus** | Config in `deploy/prometheus/prometheus.yml` scraping all services + OTel collector |
+| **Go module `services/internal/db`** | Shared data-layer module with replace directive wired into go.work |
+| **Migration runner** | `migrate.go`: golang-migrate for Postgres (embed FS); custom versioned runner for ClickHouse |
+| **Repositories** | `postgres/pg.go` (pool), `orgs.go`, `api_keys.go`, `chains.go`; `clickhouse/ch.go` (batched inserts for chain heads, probes, spans) |
+| **Redis helpers** | `redis/cache.go` (JSON TTL cache), `ratelimit.go` (Lua sliding-window), `streams.go` (producer + consumer group + retry/DLQ) |
+| **Seed script** | `seed/seed.go` + `cmd/seed/main.go`: demo org, API key (printed once), Ethereum/Base/Arbitrum chains |
+| **Makefile** | Added `migrate`, `migrate-down`, `seed`, `test-integration` targets |
+| **Integration tests** | testcontainers-go: Postgres migrations, org+API-key CRUD, cache set/get/miss, rate limiter (allow + deny), Streams producer/consumer/ack, dead-letter |
+
+### Decisions
+
+- **golang-migrate** uses embedded SQL files via `embed.FS`; Postgres DSN uses `pgx5://` scheme to match the pgx/v5 driver.
+- **ClickHouse migrations** use a custom runner (no golang-migrate driver stable for CH); files sorted by name, up/down directions, semicolon-split statements.
+- **Rate limiter** uses a Lua script with INCR-based unique member so concurrent requests at the same millisecond don't collapse into a single sorted-set entry.
+
+---
+
 ## Task 1 — Monorepo scaffold, tooling and CI ✅
 
 **Completed: 2026-11-13**

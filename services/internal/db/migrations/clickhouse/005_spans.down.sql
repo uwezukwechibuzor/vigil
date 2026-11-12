@@ -1,0 +1,2 @@
+DROP VIEW  IF EXISTS spans_1m;
+DROP TABLE IF EXISTS spans;

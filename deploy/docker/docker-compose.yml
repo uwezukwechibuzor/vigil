@@ -1,6 +1,7 @@
 services:
+  # ── Storage ─────────────────────────────────────────────────────────────────
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16.9-alpine3.22
     environment:
       POSTGRES_USER: vigil
       POSTGRES_PASSWORD: vigil
@@ -16,7 +17,7 @@ services:
       retries: 10
 
   redis:
-    image: redis:7-alpine
+    image: redis:7.4.3-alpine3.21
     command: redis-server --appendonly yes
     ports:
       - "6379:6379"
@@ -29,7 +30,7 @@ services:
       retries: 10
 
   clickhouse:
-    image: clickhouse/clickhouse-server:24-alpine
+    image: clickhouse/clickhouse-server:24.12-alpine
     ports:
       - "8123:8123"
       - "9000:9000"
@@ -41,7 +42,54 @@ services:
       timeout: 5s
       retries: 20
 
+  # ── Telemetry pipeline ───────────────────────────────────────────────────────
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.123.0
+    command: ["--config=/etc/otel/config.yaml"]
+    volumes:
+      - ../otel/config.yaml:/etc/otel/config.yaml:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "8889:8889"   # Prometheus scrape target
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+
+  # ── Observability ────────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v3.3.1
+    volumes:
+      - ../prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=30d"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  grafana:
+    image: grafana/grafana-oss:12.0.1
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: vigil
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      prometheus:
+        condition: service_healthy
+
 volumes:
   postgres_data:
   redis_data:
   clickhouse_data:
+  prometheus_data:
+  grafana_data:

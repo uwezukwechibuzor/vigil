@@ -2,7 +2,7 @@ SHELL := /usr/bin/env bash
 .DEFAULT_GOAL := help
 
 SERVICES := api collector flightcheck ingest insights alerts
-GO_MODULES := $(addprefix services/,$(SERVICES)) services/internal/platform cli sdks/go
+GO_MODULES := $(addprefix services/,$(SERVICES)) services/internal/platform services/internal/db cli sdks/go
 BIN_DIR := bin
 
 .PHONY: help
@@ -78,6 +78,7 @@ build-go:
 		go build -o $(BIN_DIR)/vigil-$$svc ./services/$$svc/cmd/$$svc; \
 	done
 	go build -o $(BIN_DIR)/vigil ./cli/cmd/vigil
+	go build -o $(BIN_DIR)/vigil-migrate ./services/internal/db/cmd/migrate
 
 .PHONY: build-ts
 build-ts:
@@ -98,6 +99,24 @@ up: ## Start local stack (docker compose)
 .PHONY: down
 down: ## Stop local stack
 	docker compose -f deploy/docker/docker-compose.yml down
+
+# ── Migrations ───────────────────────────────────────────────────────────────
+.PHONY: migrate
+migrate: ## Apply all Postgres + ClickHouse migrations
+	go run ./services/internal/db/cmd/migrate -direction=up
+
+.PHONY: migrate-down
+migrate-down: ## Roll back one migration step
+	go run ./services/internal/db/cmd/migrate -direction=down
+
+.PHONY: seed
+seed: ## Seed demo data (run after migrate)
+	go run ./services/internal/db/cmd/seed
+
+# ── Integration tests ────────────────────────────────────────────────────────
+.PHONY: test-integration
+test-integration: ## Run integration tests (requires Docker)
+	cd services/internal/db && go test -v -race -count=1 -timeout=300s ./integration/...
 
 # ── CI shortcuts ─────────────────────────────────────────────────────────────
 .PHONY: ci
