@@ -12,6 +12,7 @@ import (
 
 type ctxKey string
 
+// RequestIDKey is the context key used to store the request ID.
 const RequestIDKey ctxKey = "request_id"
 
 // RequestID injects a unique request ID into the request context and response headers.

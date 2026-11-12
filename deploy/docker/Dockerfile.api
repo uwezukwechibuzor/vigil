@@ -1,0 +1,29 @@
+# syntax=docker/dockerfile:1
+FROM golang:1.26-alpine AS builder
+WORKDIR /src
+
+# Copy workspace and module files first for layer caching
+COPY go.work go.work.sum* ./
+COPY services/internal/platform/go.mod services/internal/platform/go.sum ./services/internal/platform/
+COPY services/api/go.mod services/api/go.sum* ./services/api/
+
+RUN --mount=type=cache,target=/root/.cache/go \
+    --mount=type=cache,target=/go/pkg/mod \
+    cd services/api && go mod download
+
+COPY services/internal/platform ./services/internal/platform
+COPY services/api ./services/api
+
+RUN --mount=type=cache,target=/root/.cache/go \
+    --mount=type=cache,target=/go/pkg/mod \
+    CGO_ENABLED=0 GOOS=linux go build \
+      -ldflags="-s -w" \
+      -o /out/vigil-api \
+      ./services/api/cmd/api
+
+# --- runtime ----------------------------------------------------------------
+FROM gcr.io/distroless/static-debian12:nonroot
+COPY --from=builder /out/vigil-api /vigil-api
+USER nonroot:nonroot
+EXPOSE 8080
+ENTRYPOINT ["/vigil-api"]

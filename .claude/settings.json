@@ -1,0 +1,18 @@
+{
+  "includeCoAuthoredBy": false,
+  "permissions": {
+    "defaultMode": "bypassPermissions",
+    "allow": ["Bash", "Read", "Edit", "Write", "WebFetch", "WebSearch"],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./secrets/**)",
+      "Bash(rm -rf /:*)",
+      "Bash(rm -rf ~:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git reset --hard origin:*)",
+      "Bash(sudo:*)"
+    ]
+  }
+}

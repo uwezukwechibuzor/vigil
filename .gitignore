@@ -1,0 +1,55 @@
+# Secrets and env
+.env
+.env.*
+!.env.example
+secrets/
+
+# Go
+bin/
+*.exe
+*.out
+vendor/
+go.work.sum
+
+# Node / pnpm
+node_modules/
+.pnpm-store/
+dist/
+.next/
+.turbo/
+*.tsbuildinfo
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+.eggs/
+
+# Docker
+.docker/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# CI artifacts
+coverage/
+*.coverprofile
+*.lcov
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+!*.tfvars.example

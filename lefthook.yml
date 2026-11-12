@@ -1,0 +1,39 @@
+pre-commit:
+  parallel: true
+  commands:
+    go-fmt:
+      glob: "**/*.go"
+      run: gofmt -l -w {staged_files}
+      stage_fixed: true
+
+    go-lint:
+      glob: "**/*.go"
+      run: golangci-lint run --fix --timeout 5m {staged_files}
+      stage_fixed: true
+
+    ts-fmt:
+      glob: "packages/**/*.ts"
+      run: pnpm prettier --write {staged_files}
+      stage_fixed: true
+
+    py-fmt:
+      glob: "sdks/python/**/*.py"
+      run: uv run --directory sdks/python ruff format {staged_files}
+      stage_fixed: true
+
+    py-lint:
+      glob: "sdks/python/**/*.py"
+      run: uv run --directory sdks/python ruff check --fix {staged_files}
+      stage_fixed: true
+
+commit-msg:
+  commands:
+    conventional-commits:
+      run: |
+        msg=$(cat {1})
+        pattern="^(feat|fix|chore|docs|style|refactor|perf|test|build|ci|revert)(\(.+\))?: .+"
+        if ! echo "$msg" | grep -qE "$pattern"; then
+          echo "ERROR: commit message must follow Conventional Commits format"
+          echo "  e.g. feat(api): add health endpoint"
+          exit 1
+        fi

@@ -1,0 +1,13 @@
+go 1.26.1
+
+use (
+	./cli
+	./sdks/go
+	./services/alerts
+	./services/api
+	./services/collector
+	./services/flightcheck
+	./services/ingest
+	./services/insights
+	./services/internal/platform
+)

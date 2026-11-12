@@ -1,0 +1,139 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Go ──────────────────────────────────────────────────────────────────────
+  go-lint:
+    name: Go Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: services/api/go.mod
+          cache: true
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --timeout 5m
+
+  go-test:
+    name: Go Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: services/api/go.mod
+          cache: true
+      - name: Test platform
+        run: cd services/internal/platform && go test -race -count=1 -timeout=120s ./...
+      - name: Test services
+        run: |
+          for svc in api collector flightcheck ingest insights alerts; do
+            cd services/$svc && go test -race -count=1 -timeout=120s ./... && cd ../..
+          done
+      - name: Test CLI
+        run: cd cli && go test -race -count=1 -timeout=60s ./...
+
+  go-build:
+    name: Go Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: services/api/go.mod
+          cache: true
+      - name: Build all services
+        run: |
+          mkdir -p bin
+          for svc in api collector flightcheck ingest insights alerts; do
+            go build -o bin/vigil-$svc ./services/$svc/cmd/$svc
+          done
+          go build -o bin/vigil ./cli/cmd/vigil
+
+  govulncheck:
+    name: Go Vulnerability Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: services/api/go.mod
+          cache: true
+      - run: go install golang.org/x/vuln/cmd/govulncheck@latest
+      - name: Run govulncheck on all modules
+        run: |
+          for mod in services/internal/platform services/api services/collector services/flightcheck services/ingest services/insights services/alerts cli; do
+            echo "→ govulncheck $mod"
+            (cd $mod && govulncheck ./...)
+          done
+
+  # ── TypeScript ──────────────────────────────────────────────────────────────
+  ts-lint:
+    name: TS Lint & Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "10"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm turbo run build lint
+      - name: pnpm audit
+        run: pnpm audit --audit-level=high || true
+
+  # ── Python ──────────────────────────────────────────────────────────────────
+  python-lint:
+    name: Python Lint & Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+          enable-cache: true
+      - name: Sync deps
+        run: cd sdks/python && uv sync
+      - name: Lint (ruff)
+        run: cd sdks/python && uv run ruff check .
+      - name: Type check (mypy)
+        run: cd sdks/python && uv run mypy vigil
+      - name: Test
+        run: cd sdks/python && uv run pytest -v
+      - name: pip-audit
+        run: cd sdks/python && uv run pip-audit || true
+
+  # ── Docker ──────────────────────────────────────────────────────────────────
+  docker-build:
+    name: Docker Build Check
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [api, collector, flightcheck, ingest, insights, alerts]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build ${{ matrix.service }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/docker/Dockerfile.${{ matrix.service }}
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

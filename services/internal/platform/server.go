@@ -17,7 +17,7 @@ import (
 )
 
 // NewRouter builds a chi router with shared middleware and standard endpoints.
-func NewRouter(cfg *Config, logger *slog.Logger) chi.Router {
+func NewRouter(_ *Config, logger *slog.Logger) chi.Router {
 	r := chi.NewRouter()
 
 	r.Use(Recovery(logger))

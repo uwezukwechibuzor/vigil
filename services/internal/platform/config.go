@@ -1,3 +1,4 @@
+// Package platform provides shared server bootstrap, config, logging and telemetry for all Vigil services.
 package platform
 
 import (
