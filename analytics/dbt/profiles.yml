@@ -1,0 +1,26 @@
+vigil:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: "{{ env_var('DBT_DUCKDB_PATH', '/tmp/vigil_analytics.duckdb') }}"
+      threads: 4
+      extensions:
+        - json
+
+    prod:
+      type: clickhouse
+      schema: analytics
+      host: "{{ env_var('CLICKHOUSE_HOST', 'localhost') }}"
+      port: 9000
+      user: "{{ env_var('CLICKHOUSE_USER', 'default') }}"
+      password: "{{ env_var('CLICKHOUSE_PASSWORD', '') }}"
+      database: analytics
+      secure: false
+      verify: false
+      connect_timeout: 10
+      send_receive_timeout: 60
+      sync_request_timeout: 5
+      compress_block_size: 1048576
+      compression: "lz4"
+      threads: 4

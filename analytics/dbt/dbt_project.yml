@@ -1,0 +1,89 @@
+name: vigil_analytics
+version: "1.0.0"
+config-version: 2
+
+profile: vigil
+
+model-paths: ["models"]
+seed-paths:  ["seeds"]
+test-paths:  ["tests"]
+macro-paths: ["macros"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+vars:
+  use_seeds: true   # false in production (uses sources instead)
+  activation_days: 7  # days from signup to first flight check
+
+models:
+  vigil_analytics:
+    staging:
+      +materialized: view
+      +schema: staging
+    core:
+      +materialized: table
+      +schema: core
+    marts:
+      +materialized: table
+      +schema: marts
+
+seeds:
+  vigil_analytics:
+    +schema: raw
+    seed_events:
+      +column_types:
+        event_id:    varchar
+        org_id:      varchar
+        project_id:  varchar
+        user_id:     varchar
+        anonymous_id: varchar
+        session_id:  varchar
+        occurred_at: timestamp
+        received_at: timestamp
+        surface:     varchar
+        event_name:  varchar
+        app_version: varchar
+        plan:        varchar
+        environment: varchar
+        framework:   varchar
+        chain_id:    varchar
+        properties:  varchar
+    seed_orgs:
+      +column_types:
+        org_id:          varchar
+        name:            varchar
+        plan:            varchar
+        created_at:      timestamp
+        signup_channel:  varchar
+        first_framework: varchar
+        first_chain:     varchar
+        is_internal:     boolean
+        deleted_at:      varchar
+    seed_projects:
+      +column_types:
+        project_id: varchar
+        org_id:     varchar
+        name:       varchar
+        created_at: timestamp
+        deleted_at: varchar
+    seed_subscriptions:
+      +column_types:
+        sub_id:          varchar
+        org_id:          varchar
+        plan:            varchar
+        status:          varchar
+        started_at:      timestamp
+        ended_at:        varchar
+        mrr_cents:       integer
+        canceled_reason: varchar
+    seed_flight_checks:
+      +column_types:
+        check_id:     varchar
+        org_id:       varchar
+        project_id:   varchar
+        chain:        varchar
+        verdict:      varchar
+        risk_score:   double
+        latency_ms:   integer
+        checks_failed: integer
+        occurred_at:  timestamp

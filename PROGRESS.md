@@ -1,5 +1,41 @@
 # Progress
 
+## Product analytics foundation ✅
+
+**Completed: 2026-11-13**
+
+### What was built
+
+| Area | Details |
+|---|---|
+| **Tracking plan SSOT** | `analytics/tracking-plan/tracking-plan.yaml` — 28 events across acquisition, activation, engagement, monetization, health stages |
+| **Code generator** | `codegen.py` emits typed helpers for TypeScript, Python, Go; CI validate mode exits 1 on undeclared events |
+| **PostHog web** | `packages/dashboard/app/analytics/posthog.tsx` — autocapture off, masked inputs, explicit page views, `identifyUser()` |
+| **API server instrumentation** | `services/api/internal/analytics/` — batched PostHog delivery, PII sanitizer, typed event helpers (APIKeyCreated, FlightCheckRun, etc.) |
+| **SDK/CLI telemetry** | TS, Python, Go SDKs + CLI — anonymous, opt-out via `VIGIL_TELEMETRY=0` / `DO_NOT_TRACK=1`; never sends addresses/keys/calldata |
+| **dbt project** | `analytics/dbt/` — staging/core/marts layers; dbt-duckdb for dev, dbt-clickhouse for prod |
+| **Seed generator** | `analytics/seed/generate.py` — 500 orgs × 90 days; 86k events, 815k flight checks, 48 subscriptions |
+| **dbt tests** | 62 schema tests (unique, not_null, accepted_values, relationships) — all green |
+| **Event volume monitor** | `analytics/dbt/tests/assert_daily_event_volume.sql` — fails if DAU = 0 in last 30 days |
+| **Reconciliation job** | `analytics/reconcile/reconcile.py` — compares raw→staging counts, fails if drift > 0.5% |
+| **Grafana dashboard** | `analytics/bi/grafana_dashboard.json` — DAU/WAU/MAU, MRR movement, cohort retention heatmap, flight check latency |
+| **PII/opt-out tests** | Go: `sdks/go/telemetry_test.go`; Python: `sdks/python/tests/test_telemetry.py`; server: `services/api/internal/analytics/client_test.go` |
+| **Docs** | `docs/analytics.md` — full architecture, tracking plan, dbt layers, opt-out, BI dashboard guide |
+
+### Decisions
+
+- **dbt-duckdb for local dev/CI**: Docker not required; `profiles.yml` has both `dev` (DuckDB) and `prod` (ClickHouse) targets
+- **ETH address regex `^0x[0-9a-fA-F]{40}$`**: Exact 40-hex-char match; 32-byte private keys matched by separate `^0x[0-9a-fA-F]{64}$` regex
+- **Batch intervals**: 10s for API server (latency-sensitive), 60s for SDK/CLI (background, non-blocking)
+- **MRR movement**: Computed with `lag()` window on `fct_subscriptions`; six states — new/expansion/contraction/churn/reactivation/unchanged
+- **Activation macro**: Parameterised `var('activation_days', 7)` so the threshold is configurable per dbt invocation
+
+### Open TODOs
+
+- Metabase dashboard config (alternative to Grafana for non-technical stakeholders)
+- PostHog → ClickHouse export connector setup (requires PostHog cloud account)
+- `dbt run --target prod` requires ClickHouse to be running
+
 ## Task 10 — Production hardening, security, deploy and docs ✅
 
 **Completed: 2026-11-13**

@@ -15,6 +15,7 @@ import (
 	"github.com/go-chi/cors"
 	api "github.com/uwezukwechibuzor/vigil/services/api"
 	"github.com/uwezukwechibuzor/vigil/services/api/gen"
+	"github.com/uwezukwechibuzor/vigil/services/api/internal/analytics"
 	"github.com/uwezukwechibuzor/vigil/services/api/internal/auth"
 	"github.com/uwezukwechibuzor/vigil/services/api/internal/docs"
 	"github.com/uwezukwechibuzor/vigil/services/api/internal/handler"
@@ -74,7 +75,9 @@ func main() {
 		bgCtx := context.Background()
 		meter.StartRollup(bgCtx)
 
-		h := handler.New(pg, ch, meter, logger)
+		ac := analytics.New(logger)
+
+		h := handler.New(pg, ch, meter, logger, ac)
 		strictH := gen.NewStrictHandler(h, nil)
 
 		// --- CORS ---

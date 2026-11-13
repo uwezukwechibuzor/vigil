@@ -1,0 +1,82 @@
+version: 2
+
+models:
+  - name: mrt_daily_active_orgs
+    description: "Daily/weekly/monthly active org counts and stickiness ratio"
+    config:
+      owner: analytics
+      grain: "One row per calendar date"
+      definition: >
+        DAU = distinct orgs with at least one event on that date.
+        WAU/MAU are approximated as rolling 7/30-day sums of DAU.
+        Stickiness = DAU / MAU.
+      caveats: "WAU/MAU are rolling sums, not distinct counts — slightly inflated."
+    columns:
+      - name: event_date
+        tests: [unique, not_null]
+      - name: dau
+        tests: [not_null]
+
+  - name: mrt_activation
+    description: "Activation funnel and time-to-first-value by signup week"
+    config:
+      owner: analytics
+      grain: "One row per (signup_week, plan, signup_channel, first_framework)"
+      definition: >
+        Activation = ran a real flight check within activation_days (default: 7) of signup.
+        This is a versioned definition — see macros/activation.sql.
+      caveats: >
+        activation_rate is based on orgs that have had enough time to activate.
+        Recent cohorts (< 7 days old) will show artificially low rates.
+    columns:
+      - name: activation_rate
+        description: "Fraction of orgs in cohort that activated (0–1)"
+
+  - name: mrt_weekly_retention
+    description: "Weekly cohort retention heatmap (up to 12 weeks)"
+    config:
+      owner: analytics
+      grain: "One row per (cohort_week, weeks_since_signup)"
+      definition: >
+        Retention at week N = % of cohort orgs active N weeks after signup.
+        Active = at least one event in that week.
+    columns:
+      - name: cohort_week
+        tests: [not_null]
+      - name: weeks_since_signup
+        tests: [not_null]
+      - name: retention_rate
+        description: "Fraction of cohort retained (0–1)"
+
+  - name: mrt_mrr
+    description: "Monthly MRR waterfall by movement type"
+    config:
+      owner: analytics
+      grain: "One row per (month, mrr_movement)"
+      definition: >
+        new = first subscription; expansion = upgrade; contraction = downgrade;
+        churn = cancellation; reactivation = re-subscribe after cancellation.
+        MRR in cents (divide by 100 for dollars).
+    columns:
+      - name: month
+        tests: [not_null]
+      - name: mrr_movement
+        tests:
+          - not_null
+          - accepted_values:
+              values: [new, expansion, contraction, churn, reactivation]
+
+  - name: mrt_feature_adoption
+    description: "Weekly feature adoption rate per event/feature"
+    config:
+      owner: analytics
+      grain: "One row per (event_week, event_name)"
+      definition: >
+        adoption_rate = orgs using feature / total weekly active orgs.
+    columns:
+      - name: event_week
+        tests: [not_null]
+      - name: event_name
+        tests: [not_null]
+      - name: adoption_rate
+        description: "Fraction of weekly active orgs that used this feature (0–1)"

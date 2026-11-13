@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 	"github.com/uwezukwechibuzor/vigil/services/api/gen"
+	"github.com/uwezukwechibuzor/vigil/services/api/internal/analytics"
 	"github.com/uwezukwechibuzor/vigil/services/api/internal/auth"
 	"github.com/uwezukwechibuzor/vigil/services/api/internal/metering"
 	"github.com/uwezukwechibuzor/vigil/services/internal/db/clickhouse"
@@ -69,12 +70,13 @@ type Handler struct {
 	db             DB
 	ch             CH
 	meter          *metering.Meter
+	analytics      *analytics.Client
 	logger         *slog.Logger
 	flightcheckURL string
 }
 
-// New constructs a Handler. db and ch may be nil (graceful degradation).
-func New(db DB, ch CH, meter *metering.Meter, logger *slog.Logger) *Handler {
+// New constructs a Handler. db, ch, and ac may be nil (graceful degradation).
+func New(db DB, ch CH, meter *metering.Meter, logger *slog.Logger, ac *analytics.Client) *Handler {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -82,6 +84,7 @@ func New(db DB, ch CH, meter *metering.Meter, logger *slog.Logger) *Handler {
 		db:             db,
 		ch:             ch,
 		meter:          meter,
+		analytics:      ac,
 		logger:         logger,
 		flightcheckURL: os.Getenv("FLIGHTCHECK_URL"),
 	}

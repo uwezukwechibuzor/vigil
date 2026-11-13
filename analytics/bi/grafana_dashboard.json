@@ -1,0 +1,184 @@
+{
+  "__inputs": [],
+  "__elements": {},
+  "__requires": [
+    { "type": "grafana", "id": "grafana", "name": "Grafana", "version": "11.0.0" },
+    { "type": "datasource", "id": "grafana-clickhouse-datasource", "name": "ClickHouse", "version": "4.0.0" }
+  ],
+  "annotations": { "list": [] },
+  "description": "Vigil product metrics — DAU/WAU/MAU, MRR, activation, cohort retention, flight-check volume",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 1,
+      "title": "Engagement",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" }, "custom": { "lineWidth": 2 } },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 1 },
+      "id": 2,
+      "options": { "legend": { "calcs": ["last"], "displayMode": "table" } },
+      "targets": [
+        {
+          "rawSql": "SELECT event_date AS time, dau, wau, mau FROM analytics.marts_mrt_daily_active_orgs ORDER BY event_date",
+          "refId": "A"
+        }
+      ],
+      "title": "DAU / WAU / MAU",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+      "fieldConfig": { "defaults": { "unit": "percentunit" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 1 },
+      "id": 3,
+      "targets": [
+        {
+          "rawSql": "SELECT event_date AS time, stickiness FROM analytics.marts_mrt_daily_active_orgs ORDER BY event_date",
+          "refId": "A"
+        }
+      ],
+      "title": "Stickiness (DAU/MAU)",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 9 },
+      "id": 10,
+      "title": "Revenue",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+      "fieldConfig": { "defaults": { "unit": "currencyUSD" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 10 },
+      "id": 4,
+      "targets": [
+        {
+          "rawSql": "SELECT month AS time, sum(new_mrr_cents + expansion_mrr_cents - contraction_mrr_cents - churn_mrr_cents) / 100.0 AS net_mrr FROM analytics.marts_mrt_mrr GROUP BY month ORDER BY month",
+          "refId": "A"
+        }
+      ],
+      "title": "Net MRR",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+      "fieldConfig": { "defaults": { "unit": "currencyUSD" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 10 },
+      "id": 5,
+      "targets": [
+        {
+          "rawSql": "SELECT month AS time, new_mrr_cents/100.0 AS new, expansion_mrr_cents/100.0 AS expansion, -contraction_mrr_cents/100.0 AS contraction, -churn_mrr_cents/100.0 AS churn FROM analytics.marts_mrt_mrr ORDER BY month",
+          "refId": "A"
+        }
+      ],
+      "title": "MRR Movement",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 18 },
+      "id": 11,
+      "title": "Activation & Retention",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+      "fieldConfig": { "defaults": { "unit": "percentunit" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 19 },
+      "id": 6,
+      "targets": [
+        {
+          "rawSql": "SELECT signup_week AS time, activation_rate FROM analytics.marts_mrt_activation ORDER BY signup_week",
+          "refId": "A"
+        }
+      ],
+      "title": "Weekly Activation Rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+      "fieldConfig": { "defaults": { "unit": "percentunit" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 19 },
+      "id": 7,
+      "options": { "calculate": false, "cellGap": 1, "color": { "mode": "spectrum", "scheme": "Greens" } },
+      "targets": [
+        {
+          "rawSql": "SELECT cohort_week, weeks_since_signup, retention_rate FROM analytics.marts_mrt_weekly_retention ORDER BY cohort_week, weeks_since_signup",
+          "refId": "A"
+        }
+      ],
+      "title": "Cohort Retention Heatmap",
+      "type": "heatmap"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 27 },
+      "id": 12,
+      "title": "Flight Checks",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 28 },
+      "id": 8,
+      "targets": [
+        {
+          "rawSql": "SELECT toDate(checked_at) AS time, verdict, count() AS checks FROM analytics.core_fct_flight_checks GROUP BY time, verdict ORDER BY time",
+          "refId": "A"
+        }
+      ],
+      "title": "Flight Check Volume by Verdict",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "${DS_CLICKHOUSE}" },
+      "fieldConfig": { "defaults": { "unit": "ms" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 28 },
+      "id": 9,
+      "targets": [
+        {
+          "rawSql": "SELECT toDate(checked_at) AS time, avg(latency_ms) AS p50, quantile(0.95)(latency_ms) AS p95, quantile(0.99)(latency_ms) AS p99 FROM analytics.core_fct_flight_checks GROUP BY time ORDER BY time",
+          "refId": "A"
+        }
+      ],
+      "title": "Flight Check Latency (p50/p95/p99)",
+      "type": "timeseries"
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["vigil", "product-analytics"],
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "hide": 0,
+        "includeAll": false,
+        "name": "DS_CLICKHOUSE",
+        "options": [],
+        "query": "grafana-clickhouse-datasource",
+        "refresh": 1,
+        "type": "datasource"
+      }
+    ]
+  },
+  "time": { "from": "now-30d", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Vigil — Product Analytics",
+  "uid": "vigil-product-analytics",
+  "version": 1
+}

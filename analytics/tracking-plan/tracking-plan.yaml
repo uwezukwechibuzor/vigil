@@ -1,0 +1,347 @@
+version: "1.0"
+updated: "2026-11-13"
+owner: analytics
+
+# Standard properties included on EVERY event (see surface-level SDKs for implementation)
+standard_properties:
+  event_id:         { type: string, format: uuid, description: "Unique event ID (dedupe key)" }
+  occurred_at:      { type: string, format: datetime_utc, description: "Client-side event time (UTC)" }
+  received_at:      { type: string, format: datetime_utc, description: "Server ingestion time (UTC)" }
+  surface:          { type: string, enum: [web, cli, sdk_ts, sdk_py, sdk_go, mcp, backend], description: "Surface that fired the event" }
+  app_version:      { type: string, description: "SDK/CLI/dashboard version" }
+  org_id:           { type: string, format: uuid, description: "Organisation identifier (not email)" }
+  project_id:       { type: string, format: uuid, optional: true, description: "Project context if available" }
+  plan:             { type: string, enum: [free, pro, team, enterprise], description: "Org plan at event time" }
+  environment:      { type: string, enum: [production, staging, development], description: "Deployment environment" }
+  anonymous_id:     { type: string, format: uuid, description: "Anonymous identifier (rotates daily; no PII)" }
+  user_id:          { type: string, format: uuid, optional: true, description: "Authenticated user ID (when known)" }
+  session_id:       { type: string, format: uuid, optional: true, description: "Browser session ID (web only)" }
+  framework:        { type: string, enum: [langchain, elizaos, crewai, vercel_ai, none], description: "AI framework detected" }
+  chain_id:         { type: string, optional: true, description: "EVM chain identifier when relevant" }
+
+privacy:
+  pii: false
+  wallet_keys: never
+  calldata: never
+  tx_payloads: never
+  opt_out_env: [VIGIL_TELEMETRY=0, DO_NOT_TRACK=1]
+
+events:
+  # ── Acquisition ────────────────────────────────────────────────────────────
+  - name: landing_viewed
+    description: "Marketing landing page loaded"
+    owner: growth
+    surfaces: [web]
+    metrics: [signup_funnel_top]
+    properties:
+      required:
+        utm_source:   { type: string }
+        utm_medium:   { type: string }
+        utm_campaign: { type: string }
+        referrer:     { type: string }
+      optional:
+        page_variant: { type: string }
+
+  - name: signup_started
+    description: "User clicks 'Get started' and begins signup flow"
+    owner: growth
+    surfaces: [web]
+    metrics: [signup_funnel_mid]
+    properties:
+      required:
+        utm_source:   { type: string }
+        utm_medium:   { type: string }
+        referrer:     { type: string }
+
+  - name: signup_completed
+    description: "Account created successfully; anonymous_id stitched to user_id"
+    owner: growth
+    surfaces: [web, backend]
+    metrics: [new_signups, activation_cohort_start]
+    properties:
+      required:
+        signup_method: { type: string, enum: [email, github, google] }
+      optional:
+        utm_source:    { type: string }
+        utm_medium:    { type: string }
+        utm_campaign:  { type: string }
+        referrer:      { type: string }
+
+  # ── Activation ─────────────────────────────────────────────────────────────
+  - name: project_created
+    description: "First (or any subsequent) project created within an org"
+    owner: activation
+    surfaces: [web, backend]
+    metrics: [activation_step_1]
+    properties:
+      required:
+        project_name: { type: string }
+        is_first:     { type: boolean }
+
+  - name: endpoint_added
+    description: "An RPC endpoint registered for monitoring"
+    owner: activation
+    surfaces: [web, backend]
+    metrics: [activation_step_2, endpoint_count]
+    properties:
+      required:
+        endpoint_kind: { type: string, enum: [rpc, ws, rest] }
+        chain_id:      { type: string }
+      optional:
+        is_first:      { type: boolean }
+
+  - name: api_key_created
+    description: "An API key generated for an org"
+    owner: activation
+    surfaces: [web, backend]
+    metrics: [activation_step_3]
+    properties:
+      required:
+        key_scope_count: { type: integer }
+      optional:
+        is_first:        { type: boolean }
+        expires_in_days: { type: integer }
+
+  - name: sdk_installed
+    description: "First telemetry ping from an SDK installation (anonymous)"
+    owner: activation
+    surfaces: [sdk_ts, sdk_py, sdk_go]
+    metrics: [activation_step_sdk, sdk_install_count]
+    properties:
+      required:
+        sdk_language: { type: string, enum: [typescript, python, go] }
+        runtime:      { type: string }
+        os_family:    { type: string, enum: [linux, darwin, windows] }
+
+  - name: first_flight_check_run
+    description: "Derived: first flight_check_run event for this org"
+    owner: activation
+    surfaces: [backend]
+    metrics: [time_to_first_value, activation_complete]
+    properties:
+      required:
+        days_since_signup: { type: integer }
+        chain_id:          { type: string }
+        verdict:           { type: string, enum: [safe, warning, block] }
+
+  - name: mcp_server_connected
+    description: "MCP client successfully connected and listed tools"
+    owner: activation
+    surfaces: [mcp]
+    metrics: [mcp_adoption]
+    properties:
+      required:
+        mcp_client:    { type: string }
+        tool_count:    { type: integer }
+
+  - name: first_run_traced
+    description: "Derived: first run_traced event for this org"
+    owner: activation
+    surfaces: [backend]
+    metrics: [tracing_adoption]
+    properties:
+      required:
+        days_since_signup: { type: integer }
+
+  # ── Engagement ─────────────────────────────────────────────────────────────
+  - name: flight_check_run
+    description: "A pre-transaction flight check executed"
+    owner: engagement
+    surfaces: [sdk_ts, sdk_py, sdk_go, mcp, backend, cli]
+    metrics: [flight_check_volume, latency_distribution, block_rate]
+    properties:
+      required:
+        verdict:       { type: string, enum: [safe, warning, block] }
+        latency_ms:    { type: integer }
+        checks_failed: { type: integer }
+        chain_id:      { type: string }
+      optional:
+        rpc_latency_ms: { type: integer }
+        cached:         { type: boolean }
+
+  - name: run_traced
+    description: "An agent run span submitted via OTLP"
+    owner: engagement
+    surfaces: [sdk_ts, sdk_py, sdk_go, backend]
+    metrics: [tracing_volume, run_latency]
+    properties:
+      required:
+        span_count:   { type: integer }
+        duration_ms:  { type: integer }
+      optional:
+        gen_ai_system: { type: string }
+        llm_model:     { type: string }
+
+  - name: incident_viewed
+    description: "User opened an incident detail page"
+    owner: engagement
+    surfaces: [web]
+    metrics: [incident_engagement]
+    properties:
+      required:
+        incident_severity: { type: string, enum: [critical, high, medium, low] }
+        incident_status:   { type: string, enum: [open, acknowledged, resolved] }
+
+  - name: incident_acknowledged
+    description: "User acknowledged an incident"
+    owner: engagement
+    surfaces: [web, backend]
+    metrics: [incident_ttr]
+    properties:
+      required:
+        incident_severity: { type: string, enum: [critical, high, medium, low] }
+        time_to_ack_min:   { type: integer }
+
+  - name: alert_rule_created
+    description: "An alert rule created for an org"
+    owner: engagement
+    surfaces: [web, backend]
+    metrics: [alert_rule_count, feature_adoption]
+    properties:
+      required:
+        rule_severity:  { type: string, enum: [critical, high, medium, low] }
+        channel_kinds:  { type: array, items: { type: string } }
+
+  - name: policy_updated
+    description: "A flight check policy created or updated"
+    owner: engagement
+    surfaces: [web, backend]
+    metrics: [policy_adoption, feature_adoption]
+    properties:
+      required:
+        rule_count:  { type: integer }
+        is_new:      { type: boolean }
+
+  - name: dashboard_page_viewed
+    description: "A dashboard page loaded (explicit, not autocapture)"
+    owner: engagement
+    surfaces: [web]
+    metrics: [dau_wau_mau, page_popularity]
+    properties:
+      required:
+        page_name:    { type: string }
+        load_time_ms: { type: integer }
+
+  - name: cli_command_run
+    description: "A vigil CLI command executed (anonymous)"
+    owner: engagement
+    surfaces: [cli]
+    metrics: [cli_adoption, feature_adoption]
+    properties:
+      required:
+        command:    { type: string }
+        subcommand: { type: string }
+        success:    { type: boolean }
+        latency_bucket: { type: string, enum: [lt100ms, lt500ms, lt2s, lt10s, gt10s] }
+
+  # ── Monetization ───────────────────────────────────────────────────────────
+  - name: plan_viewed
+    description: "Pricing page or upgrade modal viewed"
+    owner: monetization
+    surfaces: [web]
+    metrics: [conversion_funnel_top]
+    properties:
+      required:
+        current_plan: { type: string, enum: [free, pro, team, enterprise] }
+        modal_trigger: { type: string }
+
+  - name: checkout_started
+    description: "Stripe checkout session opened"
+    owner: monetization
+    surfaces: [web, backend]
+    metrics: [conversion_funnel_mid]
+    properties:
+      required:
+        target_plan: { type: string, enum: [pro, team, enterprise] }
+        billing_period: { type: string, enum: [monthly, annual] }
+
+  - name: subscription_started
+    description: "New paid subscription activated (from Stripe webhook)"
+    owner: monetization
+    surfaces: [backend]
+    metrics: [new_mrr, free_to_paid_conversion]
+    properties:
+      required:
+        plan:           { type: string, enum: [pro, team, enterprise] }
+        billing_period: { type: string, enum: [monthly, annual] }
+        mrr_cents:      { type: integer }
+
+  - name: subscription_changed
+    description: "Plan upgraded or downgraded (from Stripe webhook)"
+    owner: monetization
+    surfaces: [backend]
+    metrics: [expansion_mrr, contraction_mrr]
+    properties:
+      required:
+        from_plan:    { type: string, enum: [free, pro, team, enterprise] }
+        to_plan:      { type: string, enum: [free, pro, team, enterprise] }
+        mrr_delta_cents: { type: integer }
+
+  - name: subscription_canceled
+    description: "Subscription canceled (from Stripe webhook)"
+    owner: monetization
+    surfaces: [backend]
+    metrics: [churned_mrr, churn_rate]
+    properties:
+      required:
+        plan:            { type: string, enum: [pro, team, enterprise] }
+        mrr_cents:       { type: integer }
+        reason:          { type: string }
+        months_active:   { type: integer }
+
+  - name: usage_limit_hit
+    description: "Org reached their plan's usage limit"
+    owner: monetization
+    surfaces: [backend]
+    metrics: [upgrade_trigger, upsell_opportunity]
+    properties:
+      required:
+        limit_type: { type: string, enum: [flight_checks, spans, api_keys] }
+        plan:       { type: string, enum: [free, pro, team] }
+
+  - name: credits_purchased
+    description: "One-time credits purchased (metered billing top-up)"
+    owner: monetization
+    surfaces: [backend]
+    metrics: [credits_revenue]
+    properties:
+      required:
+        amount_cents:   { type: integer }
+        credit_units:   { type: integer }
+
+  # ── Health ─────────────────────────────────────────────────────────────────
+  - name: sdk_error
+    description: "SDK encountered an error calling the Vigil API (anonymous)"
+    owner: health
+    surfaces: [sdk_ts, sdk_py, sdk_go]
+    metrics: [sdk_error_rate, reliability]
+    properties:
+      required:
+        error_code:   { type: string }
+        method:       { type: string }
+        latency_ms:   { type: integer }
+        sdk_language: { type: string, enum: [typescript, python, go] }
+      optional:
+        retried:      { type: boolean }
+
+  - name: mcp_tool_error
+    description: "MCP tool call failed (anonymous)"
+    owner: health
+    surfaces: [mcp]
+    metrics: [mcp_error_rate, reliability]
+    properties:
+      required:
+        tool_name:  { type: string }
+        error_code: { type: string }
+        latency_ms: { type: integer }
+
+  - name: onboarding_step_failed
+    description: "A step in the onboarding flow could not be completed"
+    owner: health
+    surfaces: [web]
+    metrics: [onboarding_drop_off]
+    properties:
+      required:
+        step_name:    { type: string }
+        step_number:  { type: integer }
+        error_reason: { type: string }

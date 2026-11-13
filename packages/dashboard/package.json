@@ -20,7 +20,8 @@
     "clsx": "^2.1.1",
     "class-variance-authority": "^0.7.0",
     "lucide-react": "^0.469.0",
-    "tailwind-merge": "^2.5.4"
+    "tailwind-merge": "^2.5.4",
+    "posthog-js": "^1.240.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

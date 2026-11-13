@@ -218,7 +218,7 @@ func newTestServer(t *testing.T) *httptest.Server {
 	ch := &mockCH{}
 	meter := metering.New(db, nil)
 
-	h := handler.New(db, ch, meter, nil)
+	h := handler.New(db, ch, meter, nil, nil)
 	strictH := gen.NewStrictHandler(h, nil)
 	r := chi.NewRouter()
 	apiHandler := gen.HandlerFromMux(strictH, chi.NewRouter())

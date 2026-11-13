@@ -195,7 +195,7 @@ func (c *Client) GetOracleHealth(ctx context.Context, feed string) (*OracleHealt
 }
 
 // ListRuns returns a paginated list of agent run summaries.
-func (c *Client) ListRuns(ctx context.Context, agentID, projectID, cursor string, limit int) ([]RunSummary, error) {
+func (c *Client) ListRuns(ctx context.Context, agentID, projectID, _ string, limit int) ([]RunSummary, error) {
 	if limit <= 0 {
 		limit = 20
 	}

@@ -1,0 +1,68 @@
+version: 2
+
+models:
+  - name: dim_orgs
+    description: "Organisation dimension — plan, signup, acquisition, activation, MRR"
+    config:
+      owner: analytics
+      definition: >
+        One row per non-internal organisation. Activation is defined as running
+        a real flight check within {{ var('activation_days', 7) }} days of signup.
+      caveats: >
+        days_to_first_value is null for orgs that have not yet activated.
+    columns:
+      - name: org_id
+        tests: [unique, not_null]
+      - name: plan
+        tests:
+          - not_null
+          - accepted_values:
+              values: [free, pro, team, enterprise]
+      - name: signup_date
+        tests: [not_null]
+      - name: is_activated
+        description: "True if the org ran a flight check within activation_days of signup"
+        tests: [not_null]
+
+  - name: fct_events
+    description: "Full event fact table enriched with org dimension"
+    columns:
+      - name: event_id
+        tests: [unique, not_null]
+      - name: org_id
+        tests: [not_null]
+      - name: occurred_at
+        tests: [not_null]
+      - name: surface
+        tests:
+          - not_null
+          - accepted_values:
+              values: [web, cli, sdk_ts, sdk_py, sdk_go, mcp, backend]
+
+  - name: fct_flight_checks
+    description: "Flight check fact table with verdict, latency, risk score"
+    columns:
+      - name: check_id
+        tests: [unique, not_null]
+      - name: org_id
+        tests: [not_null]
+      - name: verdict
+        tests:
+          - not_null
+          - accepted_values:
+              values: [safe, warning, block]
+
+  - name: fct_subscriptions
+    description: "Subscription fact table with MRR movement classification"
+    config:
+      definition: >
+        MRR movement types: new (first subscription), expansion (upgrade),
+        contraction (downgrade), churn (cancellation), reactivation (re-subscribe).
+    columns:
+      - name: sub_id
+        tests: [unique, not_null]
+      - name: mrr_movement
+        tests:
+          - not_null
+          - accepted_values:
+              values: [new, expansion, contraction, churn, reactivation, unchanged]

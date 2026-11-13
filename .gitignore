@@ -54,3 +54,13 @@ coverage/
 *.tfstate.backup
 *.tfvars
 !*.tfvars.example
+
+# Analytics — generated/compiled output
+analytics/dbt/seeds/*.csv
+analytics/dbt/target/
+analytics/dbt/.user.yml
+analytics/dbt/logs/
+
+# Lighthouse / Playwright test artifacts
+packages/dashboard/lighthouse-reports/
+packages/dashboard/test-results/

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 	vigil "github.com/uwezukwechibuzor/vigil/sdks/go"
@@ -37,7 +38,12 @@ Exit codes: 0=pass/warn  1=fail  2=error`,
 			}
 
 			client := newClient()
+			start := time.Now()
 			result, err := client.FlightCheck(cmd.Context(), req)
+			latencyMs := int(time.Since(start).Milliseconds())
+			success := err == nil
+			latencyBucket := vigil.LatencyBucket(latencyMs)
+			vigil.TelTrackCLI("flight-check", "run", success, latencyBucket)
 			if err != nil {
 				return fmt.Errorf("flight check: %w", err)
 			}

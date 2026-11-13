@@ -1,0 +1,96 @@
+version: 2
+
+models:
+  - name: stg_events
+    description: "Cleaned, deduplicated event stream"
+    columns:
+      - name: event_id
+        description: "Unique event identifier (dedupe key)"
+        tests:
+          - unique
+          - not_null
+      - name: org_id
+        tests: [not_null]
+      - name: occurred_at
+        tests: [not_null]
+      - name: surface
+        tests:
+          - not_null
+          - accepted_values:
+              values: [web, cli, sdk_ts, sdk_py, sdk_go, mcp, backend]
+      - name: event_name
+        tests: [not_null]
+      - name: plan
+        tests:
+          - accepted_values:
+              values: [free, pro, team, enterprise]
+      - name: environment
+        tests:
+          - accepted_values:
+              values: [production, staging]
+
+  - name: stg_orgs
+    description: "Organisation dimension (non-internal orgs only)"
+    columns:
+      - name: org_id
+        tests:
+          - unique
+          - not_null
+      - name: plan
+        tests:
+          - not_null
+          - accepted_values:
+              values: [free, pro, team, enterprise]
+      - name: created_at
+        tests: [not_null]
+
+  - name: stg_projects
+    description: "Projects within orgs"
+    columns:
+      - name: project_id
+        tests:
+          - unique
+          - not_null
+      - name: org_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_orgs')
+              field: org_id
+
+  - name: stg_subscriptions
+    description: "Subscription and MRR history"
+    columns:
+      - name: sub_id
+        tests:
+          - unique
+          - not_null
+      - name: org_id
+        tests: [not_null]
+      - name: plan
+        tests:
+          - not_null
+          - accepted_values:
+              values: [pro, team, enterprise]
+      - name: status
+        tests:
+          - not_null
+          - accepted_values:
+              values: [active, canceled, trialing]
+
+  - name: stg_flight_checks
+    description: "Individual flight check results"
+    columns:
+      - name: check_id
+        tests:
+          - unique
+          - not_null
+      - name: org_id
+        tests: [not_null]
+      - name: verdict
+        tests:
+          - not_null
+          - accepted_values:
+              values: [safe, warning, block]
+      - name: latency_ms
+        tests: [not_null]
