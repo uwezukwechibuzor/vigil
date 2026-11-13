@@ -1,5 +1,45 @@
 # Progress
 
+## Task 4 — Flight check engine ✅
+
+**Completed: 2026-11-13**
+
+### What was built
+
+| Area | Details |
+|---|---|
+| **DB migration 007** | `services/internal/db/migrations/postgres/007_policies.up.sql` — `policies` and `denylist` tables with indexes |
+| **policies.go** | `GetPolicy(ctx, id)` and `IsAddressDenied(ctx, projectID, address)` Postgres repositories |
+| **usage.go** | `IncrementFlightChecks(ctx, orgID)` with upsert |
+| **clickhouse InsertFlightCheck** | `FlightCheckRow` struct + single-row insert appended to `ch.go` |
+| **Pool.QueryRow** | Thin pass-through on `postgres.Pool` needed by the store layer |
+| **check/types.go** | `Request`, `Response`, `Result`, `BalanceChange`, `Verdict`, `Status`, `Deps` types |
+| **check/registry.go** | `Check` interface + `Registry` |
+| **8 check implementations** | `infra_health`, `simulation` (revert decode + ERC-20 balance changes), `oracle_freshness`, `slippage`, `gas_sanity`, `contract_risk` (unlimited approve + denylist), `policy` (chain/contract/value rules), `address_safety` (pluggable screener interface) |
+| **engine/engine.go** | Concurrent runner with `sync.WaitGroup`; 1500 ms budget context; verdict + risk-score aggregation; balance change extraction; summary paragraph |
+| **store/store.go** | Saves to ClickHouse + increments Postgres usage counter asynchronously |
+| **handler/handler.go** | `POST /v1/flight-check`; Prometheus counters + latency histogram |
+| **cmd/flightcheck/main.go** | Full main: connects Postgres/ClickHouse/Redis, dials chain clients from `CHAIN_{id}_RPC_URL` env vars, registers all checks, wires engine + handler |
+| **check_test.go** | 20 table-driven unit tests covering all 8 checks (no live infra) |
+| **integration/flightcheck_test.go** | 4 Anvil-based integration tests (Docker-skipped in -short) |
+| **integration/benchmark_test.go** | p95 latency benchmark against Anvil |
+| **docs/flight-check.md** | Full API, check descriptions, config table, example |
+
+### Decisions
+
+- **Checks degrade gracefully** — no live client/DB → warn, never panic; keeps latency under budget even when infra is unavailable.
+- **Policy UUID validation** happens before the nil-DB check so invalid UUIDs always return `fail`, not `warn`.
+- **`expected_out` hex-first** — parsed as hex then decimal so callers may pass either `"0x64"` or `"100"`.
+- **`Pool.QueryRow` exposed** — minimal surface; avoids leaking `pgxpool` to external packages.
+- **Screener is an interface** — `AddressScreener` wired at startup; ships as nil; Chainalysis/TRM implementations added in a future task.
+- **Store runs async** — `go h.store.Save(...)` so storage latency never blocks the HTTP response.
+
+### Open TODOs
+
+- Wire a real `AddressScreener` implementation (Chainalysis / TRM Labs)
+- Add Redis-based policy cache to avoid per-request Postgres round-trips
+- Add engine-level unit tests with mock deps (stubbed ethclient)
+
 ## Task 3 — Chain telemetry collectors ✅
 
 **Completed: 2026-11-13**

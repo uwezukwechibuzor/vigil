@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -33,4 +34,10 @@ func (p *Pool) Close() {
 // Ping checks the database connection.
 func (p *Pool) Ping(ctx context.Context) error {
 	return p.db.Ping(ctx)
+}
+
+// QueryRow executes a query that is expected to return at most one row.
+// It is a thin pass-through to the underlying pgxpool.
+func (p *Pool) QueryRow(ctx context.Context, sql string, args ...any) pgx.Row {
+	return p.db.QueryRow(ctx, sql, args...)
 }

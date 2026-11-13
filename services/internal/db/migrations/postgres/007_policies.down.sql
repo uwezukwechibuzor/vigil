@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS denylist;
+DROP TABLE IF EXISTS policies;

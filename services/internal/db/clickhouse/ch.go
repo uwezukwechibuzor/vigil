@@ -104,6 +104,29 @@ type Span struct {
 	OutputTokens uint32
 }
 
+// FlightCheckRow is one flight check result persisted to ClickHouse.
+type FlightCheckRow struct {
+	ID        string
+	ProjectID string
+	Chain     string
+	Verdict   string
+	Score     float32
+	Checks    string // JSON blob
+	LatencyMS uint32
+}
+
+// InsertFlightCheck stores a single flight check result.
+func (c *Client) InsertFlightCheck(ctx context.Context, row FlightCheckRow) error {
+	batch, err := c.conn.PrepareBatch(ctx, "INSERT INTO flight_checks")
+	if err != nil {
+		return fmt.Errorf("prepare flight_checks batch: %w", err)
+	}
+	if err := batch.Append(row.ID, row.ProjectID, row.Chain, row.Verdict, row.Score, row.Checks, row.LatencyMS); err != nil {
+		return fmt.Errorf("append flight_check: %w", err)
+	}
+	return batch.Send()
+}
+
 // InsertSpans batch-inserts trace spans.
 func (c *Client) InsertSpans(ctx context.Context, rows []Span) error {
 	batch, err := c.conn.PrepareBatch(ctx, "INSERT INTO spans")
