@@ -3,8 +3,12 @@
 package integration
 
 import (
+	"bytes"
 	"context"
+	"flag"
+	"io"
 	"log/slog"
+	"net/http"
 	"os"
 	"strings"
 	"testing"
@@ -18,17 +22,19 @@ import (
 )
 
 const (
-	// anvilFunded is Anvil's default pre-funded account #0.
 	anvilFunded  = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
 	anvilChainID = uint64(31337)
 )
 
-// startAnvil starts an Anvil container and returns its RPC URL.
-// The container is terminated when the test ends.
-func startAnvil(t *testing.T) string {
-	t.Helper()
+// sharedAnvilURL is set once in TestMain and reused by all tests.
+var sharedAnvilURL string
+
+// TestMain starts a single shared Anvil container for all integration tests.
+// All tests are skipped when -short is passed.
+func TestMain(m *testing.M) {
+	flag.Parse() // must be called before testing.Short()
 	if testing.Short() {
-		t.Skip("skipping Docker-based test in -short mode")
+		os.Exit(m.Run()) // tests will self-skip via t.Skip inside each
 	}
 
 	ctx := context.Background()
@@ -36,7 +42,10 @@ func startAnvil(t *testing.T) string {
 		Image:        "ghcr.io/foundry-rs/foundry:nightly",
 		Cmd:          []string{"anvil", "--host", "0.0.0.0", "--port", "8545", "--chain-id", "31337"},
 		ExposedPorts: []string{"8545/tcp"},
-		WaitingFor:   wait.ForLog("Listening on").WithStartupTimeout(60 * time.Second),
+		WaitingFor: wait.ForAll(
+			wait.ForLog("Listening on").WithStartupTimeout(120*time.Second),
+			wait.ForListeningPort("8545/tcp").WithStartupTimeout(120*time.Second),
+		),
 	}
 
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
@@ -44,30 +53,67 @@ func startAnvil(t *testing.T) string {
 		Started:          true,
 	})
 	if err != nil {
-		t.Fatalf("start anvil container: %v", err)
+		slog.Error("start anvil", "err", err)
+		os.Exit(1)
 	}
-	t.Cleanup(func() {
-		if err := container.Terminate(ctx); err != nil {
-			t.Logf("terminate anvil: %v", err)
-		}
-	})
+	defer func() { _ = container.Terminate(ctx) }()
 
 	host, err := container.Host(ctx)
 	if err != nil {
-		t.Fatalf("anvil host: %v", err)
+		slog.Error("anvil host", "err", err)
+		os.Exit(1)
 	}
 	port, err := container.MappedPort(ctx, "8545")
 	if err != nil {
-		t.Fatalf("anvil port: %v", err)
+		slog.Error("anvil port", "err", err)
+		os.Exit(1)
 	}
 
-	return "http://" + host + ":" + port.Port()
+	sharedAnvilURL = "http://" + host + ":" + port.Port()
+
+	// Poll until Anvil is serving JSON-RPC (port open ≠ RPC ready).
+	// Use raw HTTP POST to avoid any go-ethereum client caching behaviour.
+	var lastPollErr error
+	deadline := time.Now().Add(60 * time.Second)
+	ready := false
+	hc := &http.Client{Timeout: 2 * time.Second}
+	payload := []byte(`{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}`)
+	for time.Now().Before(deadline) {
+		reqCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+		req, _ := http.NewRequestWithContext(reqCtx, http.MethodPost, sharedAnvilURL,
+			bytes.NewReader(payload))
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := hc.Do(req)
+		cancel()
+		if err == nil {
+			_, _ = io.Copy(io.Discard, resp.Body)
+			_ = resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				ready = true
+				break
+			}
+			lastPollErr = nil
+		} else {
+			lastPollErr = err
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	if !ready {
+		slog.Error("anvil not ready after 60s poll", "last_err", lastPollErr, "url", sharedAnvilURL)
+		os.Exit(1)
+	}
+
+	os.Exit(m.Run())
 }
 
-// buildEngine creates an engine wired to the given Anvil RPC URL.
-func buildEngine(t *testing.T, rpcURL string) *engine.Engine {
+// buildEngine creates an engine wired to the shared Anvil RPC URL.
+func buildEngine(t *testing.T) *engine.Engine {
 	t.Helper()
-	client, err := ethclient.Dial(rpcURL)
+	if testing.Short() {
+		t.Skip("skipping Docker-based test in -short mode")
+	}
+
+	client, err := ethclient.Dial(sharedAnvilURL)
 	if err != nil {
 		t.Fatalf("dial ethclient: %v", err)
 	}
@@ -88,10 +134,36 @@ func buildEngine(t *testing.T, rpcURL string) *engine.Engine {
 	return engine.New(registry, clients, nil, nil, logger, 1500*time.Millisecond)
 }
 
+// buildEngineB is like buildEngine but accepts *testing.B.
+func buildEngineB(b *testing.B) *engine.Engine {
+	b.Helper()
+	if testing.Short() {
+		b.Skip("skipping Docker-based benchmark in -short mode")
+	}
+	client, err := ethclient.Dial(sharedAnvilURL)
+	if err != nil {
+		b.Fatalf("dial ethclient: %v", err)
+	}
+	b.Cleanup(client.Close)
+
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	registry := check.NewRegistry()
+	registry.Register(&check.InfraHealthCheck{})
+	registry.Register(&check.SimulationCheck{})
+	registry.Register(&check.OracleFreshnessCheck{})
+	registry.Register(&check.SlippageCheck{})
+	registry.Register(&check.GasSanityCheck{})
+	registry.Register(&check.ContractRiskCheck{})
+	registry.Register(&check.PolicyCheck{})
+	registry.Register(&check.AddressSafetyCheck{Screener: nil})
+
+	clients := []engine.ChainClient{{ChainID: anvilChainID, Client: client}}
+	return engine.New(registry, clients, nil, nil, logger, 1500*time.Millisecond)
+}
+
 // TestFlightCheck_NormalEthTransfer expects verdict "go" for a simple ETH send.
 func TestFlightCheck_NormalEthTransfer(t *testing.T) {
-	rpcURL := startAnvil(t)
-	eng := buildEngine(t, rpcURL)
+	eng := buildEngine(t)
 
 	resp := eng.Run(context.Background(), &check.Request{
 		ChainID: anvilChainID,
@@ -116,10 +188,9 @@ func TestFlightCheck_NormalEthTransfer(t *testing.T) {
 
 // TestFlightCheck_RevertingCall expects verdict "block" when the call will revert.
 func TestFlightCheck_RevertingCall(t *testing.T) {
-	rpcURL := startAnvil(t)
-	eng := buildEngine(t, rpcURL)
+	eng := buildEngine(t)
 
-	// Calling 0x000...dead with calldata 0xdeadbeef will revert (no contract code).
+	// Calling 0x000...dead with calldata 0xdeadbeef will revert (no contract code, no fallback).
 	resp := eng.Run(context.Background(), &check.Request{
 		ChainID: anvilChainID,
 		From:    anvilFunded,
@@ -136,10 +207,9 @@ func TestFlightCheck_RevertingCall(t *testing.T) {
 	}
 }
 
-// TestFlightCheck_UnlimitedApproval expects verdict "warn" for a max-uint256 approval.
+// TestFlightCheck_UnlimitedApproval expects contract_risk to warn for a max-uint256 approval.
 func TestFlightCheck_UnlimitedApproval(t *testing.T) {
-	rpcURL := startAnvil(t)
-	eng := buildEngine(t, rpcURL)
+	eng := buildEngine(t)
 
 	// approve(address, 2^256-1) calldata.
 	maxU256 := strings.Repeat("f", 64)
@@ -149,12 +219,11 @@ func TestFlightCheck_UnlimitedApproval(t *testing.T) {
 	resp := eng.Run(context.Background(), &check.Request{
 		ChainID: anvilChainID,
 		From:    anvilFunded,
-		To:      "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", // USDC-like address
+		To:      "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
 		Value:   "0x0",
 		Data:    data,
 	})
 
-	// contract_risk should warn; overall verdict should be warn or block.
 	foundWarn := false
 	for _, c := range resp.Checks {
 		if c.Name == "contract_risk" && c.Status == check.StatusWarn {
@@ -169,23 +238,20 @@ func TestFlightCheck_UnlimitedApproval(t *testing.T) {
 	}
 }
 
-// TestFlightCheck_PolicyMaxValue expects verdict "block" when value exceeds policy limit.
+// TestFlightCheck_PolicyMaxValue expects the policy check to warn when no DB is configured.
 func TestFlightCheck_PolicyMaxValue(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping Docker-based test in -short mode")
 	}
-	// This test validates the policy check logic without a database.
-	// Policy check with no DB returns warn, not block — we test the logic directly.
 	c := &check.PolicyCheck{}
 	policyID := "00000000-0000-0000-0000-000000000001"
 	res, err := c.Run(context.Background(), &check.Request{
 		PolicyID: &policyID,
-		Value:    "0x100", // 256 wei
+		Value:    "0x100",
 	}, &check.Deps{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Without a real DB, should warn (not fail) about missing connection.
 	if res.Status != check.StatusWarn {
 		t.Errorf("expected warn without db, got %s: %s", res.Status, res.Reason)
 	}

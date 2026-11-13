@@ -55,7 +55,7 @@ test: test-go test-ts test-py ## Run all tests
 test-go:
 	@for mod in $(GO_MODULES); do \
 		echo "→ testing $$mod"; \
-		(cd $$mod && go test -race -count=1 -timeout=120s ./...); \
+		(cd $$mod && go test -short -race -count=1 -timeout=120s ./...); \
 	done
 
 .PHONY: test-ts
@@ -117,6 +117,8 @@ seed: ## Seed demo data (run after migrate)
 .PHONY: test-integration
 test-integration: ## Run integration tests (requires Docker)
 	cd services/internal/db && go test -v -race -count=1 -timeout=300s ./integration/...
+	cd services/collector && go test -v -race -count=1 -timeout=300s ./integration/...
+	cd services/flightcheck && go test -v -race -count=1 -timeout=300s ./integration/...
 
 # ── CI shortcuts ─────────────────────────────────────────────────────────────
 .PHONY: ci

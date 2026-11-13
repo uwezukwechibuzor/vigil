@@ -33,6 +33,7 @@
 - **`Pool.QueryRow` exposed** — minimal surface; avoids leaking `pgxpool` to external packages.
 - **Screener is an interface** — `AddressScreener` wired at startup; ships as nil; Chainalysis/TRM implementations added in a future task.
 - **Store runs async** — `go h.store.Save(...)` so storage latency never blocks the HTTP response.
+- **`-short` in test-go** — Docker containers require stable port forwarding; `-short` keeps `make test` dependency-free. `make test-integration` runs the full Docker suite (db + collector + flightcheck).
 
 ### Open TODOs
 

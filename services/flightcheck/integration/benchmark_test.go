@@ -4,22 +4,19 @@ import (
 	"context"
 	"sort"
 	"testing"
-	"time"
 
 	"github.com/uwezukwechibuzor/vigil/services/flightcheck/internal/check"
 )
 
-// BenchmarkFlightCheck measures p95 latency for a simple ETH transfer against Anvil.
+// BenchmarkFlightCheck measures p95 latency for a simple ETH transfer against
+// the shared Anvil instance started in TestMain.
 func BenchmarkFlightCheck(b *testing.B) {
 	if testing.Short() {
 		b.Skip("skipping Docker-based benchmark in -short mode")
 	}
 
-	// Using b as a testing.T-like via a wrapper is not possible; start Anvil manually.
-	// We use a testing.T embedded workaround.
-	t := &testing.T{}
-	rpcURL := startAnvil(t)
-	eng := buildEngine(t, rpcURL)
+	// Wrap b in a minimal testing.T-compatible helper so buildEngine can log.
+	eng := buildEngineB(b)
 
 	req := &check.Request{
 		ChainID: anvilChainID,
@@ -54,5 +51,4 @@ func BenchmarkFlightCheck(b *testing.B) {
 			b.Fatalf("p95 latency %dms exceeds 1500ms budget", p95)
 		}
 	}
-	_ = time.Millisecond // keep import
 }
