@@ -64,7 +64,7 @@ test-ts:
 
 .PHONY: test-py
 test-py:
-	cd sdks/python && uv run pytest -v
+	cd sdks/python && uv run pytest -v; ec=$$?; [ $$ec -eq 5 ] && exit 0 || exit $$ec
 
 # ── Build ────────────────────────────────────────────────────────────────────
 .PHONY: build

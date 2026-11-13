@@ -42,6 +42,19 @@ services:
       timeout: 5s
       retries: 20
 
+  # ── Dev chain (Anvil) ───────────────────────────────────────────────────────
+  anvil:
+    image: ghcr.io/foundry-rs/foundry:nightly
+    entrypoint: ["anvil", "--host", "0.0.0.0", "--port", "8545",
+                 "--block-time", "2", "--chain-id", "31337"]
+    ports:
+      - "8545:8545"
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 8545 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   # ── Telemetry pipeline ───────────────────────────────────────────────────────
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.123.0

@@ -1,5 +1,41 @@
 # Progress
 
+## Task 3 — Chain telemetry collectors ✅
+
+**Completed: 2026-11-13**
+
+### What was built
+
+| Area | Details |
+|---|---|
+| **Chain adapter interface** | `services/collector/internal/adapter/adapter.go` — `ChainAdapter` interface with types `Block`, `FeeData`, `Log`, `CallMsg`, `FilterQuery`; EVM-agnostic, Solana-pluggable |
+| **EVM adapter** | `evm.go` — go-ethereum `ethclient` supporting HTTP + WebSocket; implements all interface methods including `FeeData` (EIP-1559 base fee, tip, `eth_feeHistory` percentiles) |
+| **Probe scheduler** | `internal/probe/probe.go` — shared `Probe` interface, `Config`, jitter loop, `Loop()` runner |
+| **RPC probe** | Measures round-trip latency by fetching the head block |
+| **HeadLag probe** | Measures wall-clock age of the latest block; exposes `BlockLag()` for unit testing |
+| **Reorg detector** | Tracks previous head hash; emits alert if same/lower block number has different hash; exposes `DetectReorg()` for unit testing |
+| **GasFee probe** | Samples EIP-1559 `BaseFee`, `MaxFee`, `PriorityFee` in gwei |
+| **Oracle probe** | Calls Chainlink AggregatorV3 `latestRoundData` via `eth_call`; decodes ABI-encoded int256 answer; flags staleness; exposes `OracleStale()` for unit testing |
+| **Indexer probe** | Queries `_meta { block { number } }` GraphQL endpoint; exposes `IndexerLag()` for unit testing |
+| **Endpoint loader** | Reads `endpoints` table from Postgres; reloads via Redis pub/sub on `vigil:endpoints:reload` channel with 2s debounce — no restart required |
+| **Shard manager** | Registers a lease key per replica in Redis (`vigil:collector:lease:<id>`); renews every 5s; `Owns()` uses sorted live-replica list for deterministic modulo assignment |
+| **Writer** | Batches `ChainHead` + `EndpointProbe` rows to ClickHouse (flush every 5s or 500 rows); publishes failure events to Redis Stream `events`; records `written_total` and `write_lag_seconds` Prometheus metrics |
+| **Collector orchestrator** | `internal/collector/collector.go` — acquires shard lease, starts writer, watches endpoint reloads, spawns per-endpoint probe goroutines; self-metrics: `probes_run_total`, `probe_failures_total` |
+| **main.go** | Connects to Postgres, ClickHouse, Redis from env vars; runs collector + HTTP health/metrics server |
+| **Postgres endpoint query** | Added `ListEnabledEndpoints()` to `services/internal/db/postgres/endpoints.go` |
+| **Anvil in docker-compose** | `ghcr.io/foundry-rs/foundry:nightly` as `anvil` service; 2s block time, chain-id 31337, port 8545 |
+| **Unit tests** | `BlockLag`, `DetectReorg` (5 cases), `OracleStale` (3 cases), `IndexerLag` (4 cases) — all pass |
+| **Integration test** | `TestEndpointDownEvent` — spins up Redis via testcontainers, runs failing RPC probe, verifies "endpoint down" event appears on `events` stream within 10s |
+
+### Decisions
+
+- **Reorg detection** uses a simple hash-compare approach (no deep chain traversal); sufficient for alerting signal without additional RPC calls per cycle.
+- **Oracle ABI decoding** is hand-rolled (5-slot, 32-byte each) to avoid a dependency on go-ethereum's ABI package for a single selector.
+- **Shard assignment** uses `len(replicas) % index` on sorted lease key IDs, giving zero-coordination consistent assignment. Missing a lease renewal degrades gracefully — the replica claims all endpoints rather than leaving gaps.
+- **Writer flush** happens on a 5s ticker or batch-size threshold (500 rows), balancing ClickHouse write overhead vs. data freshness.
+
+---
+
 ## Task 2 — Data layer and local infrastructure ✅
 
 **Completed: 2026-11-13**
