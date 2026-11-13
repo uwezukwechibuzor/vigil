@@ -87,3 +87,9 @@ seeds:
         latency_ms:   integer
         checks_failed: integer
         occurred_at:  timestamp
+    seed_experiment_exposures:
+      +column_types:
+        experiment_id: varchar
+        org_id:        varchar
+        variant:       varchar
+        exposed_at:    timestamp

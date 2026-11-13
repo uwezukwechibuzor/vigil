@@ -306,12 +306,31 @@ def generate(days: int, n_orgs: int, seed: int = 42) -> None:
                 "ended_at", "mrr_cents", "canceled_reason"],
                sub_rows)
 
+    # Pass 5: experiment exposures (EXP-001 — onboarding A/B)
+    exp_rows: list[dict] = []
+    activated_orgs = [o for o in orgs if not o.is_internal and o.activated]
+    experiment_pool = activated_orgs[:400]  # first 400 activated orgs in the pilot
+    for i, org in enumerate(experiment_pool):
+        variant = "control" if i % 2 == 0 else "treatment"
+        exposed_at = org.created_at + timedelta(seconds=random.uniform(60, 300))
+        exp_rows.append({
+            "experiment_id": "EXP-001",
+            "org_id": org.org_id,
+            "variant": variant,
+            "exposed_at": exposed_at.isoformat(),
+        })
+
+    _write_csv("seed_experiment_exposures.csv",
+               ["experiment_id", "org_id", "variant", "exposed_at"],
+               exp_rows)
+
     # Summary
-    print(f"✓ seed_orgs.csv          {len(orgs):,} rows")
-    print(f"✓ seed_projects.csv      {len(projects_rows):,} rows")
-    print(f"✓ seed_events.csv        {len(events):,} rows")
-    print(f"✓ seed_flight_checks.csv {len(flight_checks):,} rows")
-    print(f"✓ seed_subscriptions.csv {len(sub_rows):,} rows")
+    print(f"✓ seed_orgs.csv                    {len(orgs):,} rows")
+    print(f"✓ seed_projects.csv                {len(projects_rows):,} rows")
+    print(f"✓ seed_events.csv                  {len(events):,} rows")
+    print(f"✓ seed_flight_checks.csv           {len(flight_checks):,} rows")
+    print(f"✓ seed_subscriptions.csv           {len(sub_rows):,} rows")
+    print(f"✓ seed_experiment_exposures.csv    {len(exp_rows):,} rows")
 
 
 def _write_csv(name: str, fieldnames: list, rows: list) -> None:

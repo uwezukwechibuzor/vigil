@@ -1,5 +1,53 @@
 # Progress
 
+## Product analysis, experiments and case study ✅
+
+**Completed: 2026-11-14**
+
+### What was built
+
+| Area | Details |
+|---|---|
+| **Notebook 01 — Activation funnel** | `analytics/notebooks/01_activation_funnel.py` — signup → project → API key → first flight check → week-2 active; step conversion, timing, surface breakdown; 3 charts |
+| **Notebook 02 — Retention** | `analytics/notebooks/02_retention.py` — weekly cohort heatmap, curves by plan, logistic regression predicting week-4 retention from week-1 behaviours; `checks_wk1` is the strongest predictor |
+| **Notebook 03 — Behavioral paths** | `analytics/notebooks/03_behavioral_paths.py` — bigrams/trigrams of first-7-day event sequences for high vs low engagement orgs |
+| **Notebook 04 — Segmentation** | `analytics/notebooks/04_segmentation.py` — usage by surface, channel, plan, framework; 2×2 grid chart |
+| **Notebook 05 — Churn** | `analytics/notebooks/05_churn.py` — hard (subscription canceled) + soft (28d inactivity) churn; risk score = 0.6×recency + 0.4×diversity |
+| **Notebook 06 — Monetization** | `analytics/notebooks/06_monetization.py` — free-to-paid by channel/framework, MRR waterfall, NRR by cohort |
+| **Experiment framework** | `analytics/experiments/ab_test.py` — z-test (proportions), Welch's t-test (means), CUPED variance reduction, SRM check, sample size calculator |
+| **Experiment tests** | `analytics/tests/test_ab_test.py` — 19 unit tests; `test_recovers_true_effect_in_ci` uses n=10000, seed=1234; all 19 pass |
+| **fct_experiment_exposures** | `analytics/dbt/models/core/fct_experiment_exposures.sql` — org-level assignment, activated_7d/14d outcomes, pre_period_checks CUPED covariate, dim_orgs enrichment |
+| **Seed — experiment exposures** | `analytics/seed/generate.py` Pass 5: 400 EXP-001 exposures (50/50 control/treatment) added to `seed_experiment_exposures.csv` |
+| **Experiment template** | `docs/experiments/TEMPLATE.md` — hypothesis, variants, guardrails, sample size, assignment mechanism, exposure event, decision rule, analysis code, exploratory breakdowns |
+| **Experiment writeup** | `docs/experiments/EXP-001-onboarding-mcp-first.md` — MCP-first vs SDK-first; +6.5pp activation (synthetic); p=0.028; shipped |
+| **KPI monitor** | `analytics/kpi/monitor.py` — 4 metrics (DAU, flight checks, activation, MRR) vs 7-day baseline; exits 1 on anomaly; `--inject-drop surface=X` test mode; contribution analysis names driving segment |
+| **Weekly report** | `analytics/kpi/weekly_report.py` — markdown product review: 5-metric table, top anomaly, segment highlights, open questions, action items |
+| **Survey config** | `analytics/surveys/survey_config.py` — PostHog survey definitions (post_first_check, cancellation), PII scrubber, LLM theme tagger (Anthropic API, falls back gracefully), behaviour join to DuckDB |
+| **Feedback log template** | `docs/feedback-log-template.md` — structured template for user call notes |
+| **Case study** | `analytics/reports/case-study.md` — architecture diagram, funnel findings, EXP-001 result, retention aha moment, churn model, KPI monitor, product decisions made |
+| **dbt — 90 of 90 passing** | `seed_experiment_exposures` added to `dbt_project.yml` column_types; `fct_experiment_exposures` added to `_core.yml` with 6 schema tests; `dbt build` exits 0 |
+
+### Decisions
+
+- **CUPED covariate** is `pre_period_checks` (flight checks before experiment exposure) — available from `fct_flight_checks` join in `fct_experiment_exposures`. Theta estimated via OLS covariance ratio.
+- **Org-level randomisation**: User-level would contaminate (orgs share API keys). PostHog feature flag evaluated server-side on first signup API call.
+- **SRM check at α=0.01** (stricter than the 0.05 primary test): An SRM means something went wrong with assignment, not a true effect.
+- **Synthetic data caveat**: Seed generator makes all orgs activate (100% conversion), so churn and retention analyses use quartile-based proxies. All notebooks are labelled `[SYNTHETIC DATA]`.
+- **DuckDB window function constraint**: `COUNT(DISTINCT) FILTER OVER PARTITION BY` is invalid in DuckDB 1.4.5 inside GROUP BY. Retention notebook uses CTEs (`joined`, `cohort_sizes`) to pre-aggregate before joining.
+
+### Acceptance criteria — all met
+
+| Criterion | Result |
+|-----------|--------|
+| All 6 notebooks run end to end from clean checkout against seeded data | ✅ |
+| Experiment analysis unit tests recover the true effect within its CI | ✅ 19/19 pass |
+| KPI monitor fires on injected drop and names the correct driving segment | ✅ `--inject-drop surface=mcp` → exits 1, names `mcp` |
+| Weekly report generated and readable by non-technical reader | ✅ |
+| Case study generated and readable | ✅ |
+| `make fmt lint test build` all pass | ✅ 90/90 dbt + all Go tests |
+
+---
+
 ## Product analytics foundation ✅
 
 **Completed: 2026-11-13**

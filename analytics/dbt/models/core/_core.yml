@@ -52,6 +52,28 @@ models:
           - accepted_values:
               values: [safe, warning, block]
 
+  - name: fct_experiment_exposures
+    description: >
+      Experiment exposure fact table. One row per org per experiment.
+      Randomisation unit is org (not user) to avoid contamination.
+      CUPED covariate: pre_period_checks (flight checks before exposure).
+    config:
+      owner: analytics
+    columns:
+      - name: org_id
+        tests: [not_null]
+      - name: experiment_id
+        tests: [not_null]
+      - name: variant
+        tests:
+          - not_null
+          - accepted_values:
+              values: [control, treatment]
+      - name: activated_7d
+        tests: [not_null]
+      - name: pre_period_checks
+        tests: [not_null]
+
   - name: fct_subscriptions
     description: "Subscription fact table with MRR movement classification"
     config:
