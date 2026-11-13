@@ -84,6 +84,19 @@ build-go:
 build-ts:
 	pnpm turbo run build
 
+# ── Local dev (no Docker) ────────────────────────────────────────────────────
+.PHONY: dev
+dev: ## Start the full stack locally (Postgres, Redis, ClickHouse, services)
+	./scripts/dev.sh
+
+.PHONY: dev-stop
+dev-stop: ## Stop all locally started services and infra
+	./scripts/dev.sh --stop
+
+.PHONY: dev-reset
+dev-reset: ## Wipe local data and restart fresh
+	./scripts/dev.sh --reset
+
 # ── Docker ───────────────────────────────────────────────────────────────────
 .PHONY: docker-build
 docker-build: ## Build all service Docker images
