@@ -79,17 +79,14 @@ export async function guardedSend(
     run?: Run;
   },
 ): Promise<{ txHash: string; flightCheckId: string }> {
-  const flightOpts = opts?.onWarn !== undefined
-    ? { onWarn: opts.onWarn }
-    : {};
+  const flightOpts = opts?.onWarn !== undefined ? { onWarn: opts.onWarn } : {};
   const result = await client.flightCheck(tx, flightOpts);
 
   if (result.verdict === "fail") {
-    throw new VigilError(
-      "flight_check_failed",
-      `Flight check failed with score ${result.score}`,
-      { checks: result.checks, flight_check_id: result.id },
-    );
+    throw new VigilError("flight_check_failed", `Flight check failed with score ${result.score}`, {
+      checks: result.checks,
+      flight_check_id: result.id,
+    });
   }
 
   const sendTx: { to: string; data?: string; value?: bigint; chainId?: number } = {

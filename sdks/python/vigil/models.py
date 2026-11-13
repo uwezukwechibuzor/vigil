@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 # ---- Common ----
 
+
 class ListMeta(BaseModel):
     """Pagination metadata."""
 
@@ -18,6 +19,7 @@ class ListMeta(BaseModel):
 
 
 # ---- Chains ----
+
 
 class Chain(BaseModel):
     """An EVM chain supported by Vigil."""
@@ -49,6 +51,7 @@ class ChainHealth(BaseModel):
 
 
 # ---- Endpoints ----
+
 
 class Endpoint(BaseModel):
     """An RPC/indexer/oracle endpoint registered with Vigil."""
@@ -82,6 +85,7 @@ class EndpointHealth(BaseModel):
 
 # ---- Oracles ----
 
+
 class OracleHealth(BaseModel):
     """Health snapshot for a Chainlink-style price feed."""
 
@@ -92,6 +96,7 @@ class OracleHealth(BaseModel):
 
 
 # ---- Flight Checks ----
+
 
 class FlightCheckRequest(BaseModel):
     """Pre-transaction flight check request."""
@@ -131,6 +136,7 @@ class FlightCheckResult(BaseModel):
 
 
 # ---- Runs ----
+
 
 class RunSummary(BaseModel):
     """Summary of a single agent run."""
@@ -179,6 +185,7 @@ class RunDetail(RunSummary):
 
 # ---- Incidents ----
 
+
 class Incident(BaseModel):
     """An active or resolved incident."""
 
@@ -202,6 +209,7 @@ class IncidentList(BaseModel):
 
 
 # ---- Policies ----
+
 
 class Policy(BaseModel):
     """A flight check policy."""
@@ -233,6 +241,7 @@ class CreatePolicyRequest(BaseModel):
 
 # ---- Alert Rules ----
 
+
 class AlertRule(BaseModel):
     """An alert rule."""
 
@@ -255,6 +264,7 @@ class AlertRuleList(BaseModel):
 
 # ---- Alert Channels ----
 
+
 class AlertChannel(BaseModel):
     """A notification channel."""
 
@@ -273,6 +283,7 @@ class AlertChannelList(BaseModel):
 
 
 # ---- API Keys ----
+
 
 class APIKey(BaseModel):
     """An API key (without plaintext secret)."""
@@ -313,6 +324,7 @@ class CreateAPIKeyRequest(BaseModel):
 
 
 # ---- Usage ----
+
 
 class UsageRecord(BaseModel):
     """Daily usage counter for an org."""

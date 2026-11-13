@@ -26,11 +26,7 @@ def init_tracing(
     service_name: str,
 ) -> None:
     """Configure OTel to export to the Vigil OTLP endpoint."""
-    resolved_endpoint = (
-        endpoint
-        or os.environ.get("VIGIL_OTLP_ENDPOINT")
-        or _DEFAULT_OTLP_ENDPOINT
-    )
+    resolved_endpoint = endpoint or os.environ.get("VIGIL_OTLP_ENDPOINT") or _DEFAULT_OTLP_ENDPOINT
     resolved_key = api_key or os.environ.get("VIGIL_API_KEY")
 
     headers: dict[str, str] = {}

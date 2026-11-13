@@ -96,9 +96,9 @@ class VigilClient:
                     try:
                         wait = float(retry_after_header)
                     except ValueError:
-                        wait = 2.0 ** attempt
+                        wait = 2.0**attempt
                 else:
-                    wait = 2.0 ** attempt
+                    wait = 2.0**attempt
                 _sleep(wait)
                 continue
 

@@ -1,4 +1,5 @@
 """Example: guarded_send with web3.py."""
+
 from vigil import VigilClient, FlightCheckRequest, guarded_send
 
 vigil = VigilClient()

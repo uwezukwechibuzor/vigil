@@ -62,9 +62,7 @@ def test_flight_check_does_not_raise_on_warn(httpx_mock: HTTPXMock, client: Vigi
     assert result.verdict == "warn"
 
 
-def test_flight_check_calls_on_warn_callback(
-    httpx_mock: HTTPXMock, client: VigilClient
-) -> None:
+def test_flight_check_calls_on_warn_callback(httpx_mock: HTTPXMock, client: VigilClient) -> None:
     httpx_mock.add_response(json=_flight_check_response("warn"))
     called_with = []
     client.flight_check(_make_request(), on_warn=lambda r: called_with.append(r))

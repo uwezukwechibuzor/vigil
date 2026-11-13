@@ -1,4 +1,5 @@
 """Example: startRun + traced_llm_call + end."""
+
 from vigil import VigilClient, init_tracing, start_run
 
 init_tracing(service_name="my-agent")

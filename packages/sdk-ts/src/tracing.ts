@@ -31,8 +31,7 @@ export function initTracing(opts: TraceInitOptions): void {
         "https://ingest.vigil.dev/v1/traces";
 
       const apiKey =
-        opts.apiKey ??
-        (typeof process !== "undefined" ? process.env["VIGIL_API_KEY"] : undefined);
+        opts.apiKey ?? (typeof process !== "undefined" ? process.env["VIGIL_API_KEY"] : undefined);
 
       const headers: Record<string, string> = {};
       if (apiKey) {
@@ -47,7 +46,9 @@ export function initTracing(opts: TraceInitOptions): void {
       };
       // Use SimpleSpanProcessor as fallback if BatchSpanProcessor not available
       const provider = new sdkNode.NodeTracerProvider({
-        resource: { attributes: resourceAttrs } as unknown as InstanceType<typeof sdkNode.NodeTracerProvider>["resource"],
+        resource: { attributes: resourceAttrs } as unknown as InstanceType<
+          typeof sdkNode.NodeTracerProvider
+        >["resource"],
         spanProcessors: [new sdkNode.BatchSpanProcessor(exporter)],
       });
       provider.register();

@@ -1,5 +1,36 @@
 # Progress
 
+## Task 8 — MCP server and framework plugins ✅
+
+**Completed: 2026-11-13**
+
+### What was built
+
+| Area | Details |
+|---|---|
+| **packages/mcp-server** | Full MCP server with 8 tools, 2 resources, 2 prompts; tsup (ESM+CJS+DTS); stdio CLI + Streamable HTTP server |
+| **MCP tools** | `vigil_flight_check`, `vigil_chain_health`, `vigil_endpoint_health`, `vigil_oracle_health`, `vigil_explain_incident`, `vigil_find_anomalies`, `vigil_get_run`, `vigil_list_incidents` |
+| **MCP resources** | `vigil://chains` (live chain list), `vigil://docs/conventions` (span conventions) |
+| **MCP prompts** | `pre_trade_safety_check`, `diagnose_indexer_lag` |
+| **summaries.ts** | 6 LLM-friendly summary formatters (all ≤150 words, tested) |
+| **http.ts** | Streamable HTTP transport server at POST /mcp with Bearer auth extraction |
+| **Framework plugins** | LangChain JS, Vercel AI SDK, ElizaOS (TS); LangChain Python, CrewAI (Python) |
+| **docs/mcp/setup.md** | Setup guide for Claude Desktop, Claude Code, Cursor, hosted HTTP mode |
+| **Tests** | 6 vitest tests (2 files): summary word-count, action hints, server construction, demo scenario |
+
+### Decisions
+
+- **`exactOptionalPropertyTypes`** compatibility: build optional params explicitly (never pass `{ key: undefined }` where the type expects `key?: string`).
+- **Plugins are standalone source files** — no package.json per plugin; they're copy-paste for framework integrations without optional deps installed.
+- **`server.tool(name, description, schema, cb)` signature** — uses the deprecated but stable overload available in `@modelcontextprotocol/sdk` ^1.12; `registerTool` is also available for future migrations.
+- **HTTP transport** creates a fresh `McpServer` per request to isolate state and pick up per-request Bearer API keys.
+
+### Open TODOs
+
+- Add HTTP auth middleware (verify VIGIL_API_KEY on the server side, not just pass through to client)
+- Add SSE GET endpoint for server-initiated notifications
+- Publish `@vigil/mcp-server` to npm
+
 ## Task 7 — SDKs: TypeScript, Python and Go ✅
 
 **Completed: 2026-11-13**

@@ -1,4 +1,5 @@
 """Example: check Base chain health."""
+
 from vigil import VigilClient
 
 vigil = VigilClient()  # reads VIGIL_API_KEY from env

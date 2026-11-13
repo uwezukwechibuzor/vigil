@@ -10,6 +10,7 @@ bin/
 *.out
 vendor/
 go.work.sum
+/vigil
 
 # Node / pnpm
 node_modules/

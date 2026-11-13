@@ -60,8 +60,7 @@ export class VigilClient {
 
   constructor(opts: VigilClientOptions = {}) {
     this.apiKey =
-      opts.apiKey ??
-      (typeof process !== "undefined" ? process.env["VIGIL_API_KEY"] : undefined);
+      opts.apiKey ?? (typeof process !== "undefined" ? process.env["VIGIL_API_KEY"] : undefined);
     this.baseUrl = opts.baseUrl ?? DEFAULT_BASE_URL;
   }
 
@@ -110,10 +109,7 @@ export class VigilClient {
       try {
         resp = await fetch(url, fetchInit);
       } catch (err) {
-        throw new VigilError(
-          "network_error",
-          err instanceof Error ? err.message : "Network error",
-        );
+        throw new VigilError("network_error", err instanceof Error ? err.message : "Network error");
       }
 
       // Retry on 429 or 5xx
@@ -126,7 +122,9 @@ export class VigilClient {
       }
 
       if (!resp.ok) {
-        let errBody: { error?: { code?: string; message?: string; details?: Record<string, unknown> } } = {};
+        let errBody: {
+          error?: { code?: string; message?: string; details?: Record<string, unknown> };
+        } = {};
         try {
           errBody = (await resp.json()) as typeof errBody;
         } catch {
@@ -234,10 +232,7 @@ export class VigilClient {
   // ---- Incidents ----
 
   /** List incidents. */
-  async listIncidents(params?: {
-    projectId?: string;
-    status?: string;
-  }): Promise<IncidentList> {
+  async listIncidents(params?: { projectId?: string; status?: string }): Promise<IncidentList> {
     return this.request<IncidentList>("/incidents", {
       query: {
         project_id: params?.projectId,

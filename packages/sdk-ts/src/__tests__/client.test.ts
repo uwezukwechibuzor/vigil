@@ -85,12 +85,11 @@ describe("VigilClient", () => {
   it("flightCheck throws VigilError on 4xx", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(
-        jsonResponse(
-          { error: { code: "unauthorized", message: "Invalid API key" } },
-          401,
+      vi
+        .fn()
+        .mockResolvedValue(
+          jsonResponse({ error: { code: "unauthorized", message: "Invalid API key" } }, 401),
         ),
-      ),
     );
     const client = new VigilClient({ apiKey: "vgl_bad", baseUrl });
     await expect(
@@ -106,13 +105,15 @@ describe("VigilClient", () => {
     const client = new VigilClient({ apiKey: "vgl_test", baseUrl });
 
     // Kick off the promise
-    const promise = client.flightCheck({
-      chain_id: 1,
-      from: "0xabc",
-      to: "0xdef",
-      data: "0x",
-      value: "0x0",
-    }).catch((e: unknown) => e); // catch so it doesn't become unhandled
+    const promise = client
+      .flightCheck({
+        chain_id: 1,
+        from: "0xabc",
+        to: "0xdef",
+        data: "0x",
+        value: "0x0",
+      })
+      .catch((e: unknown) => e); // catch so it doesn't become unhandled
 
     // Advance fake timers to skip all retry sleeps
     await vi.runAllTimersAsync();
@@ -177,12 +178,11 @@ describe("VigilClient", () => {
   it("VigilError has correct code and statusCode", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(
-        jsonResponse(
-          { error: { code: "not_found", message: "chain not found" } },
-          404,
+      vi
+        .fn()
+        .mockResolvedValue(
+          jsonResponse({ error: { code: "not_found", message: "chain not found" } }, 404),
         ),
-      ),
     );
     const client = new VigilClient({ apiKey: "vgl_test", baseUrl });
     try {
