@@ -1,0 +1,1567 @@
+openapi: "3.1.0"
+info:
+  title: Vigil API
+  version: "1.0.0"
+  description: |
+    Vigil is a reliability layer for onchain AI agents.
+    All SDKs, the MCP server, and the dashboard call this API.
+
+servers:
+  - url: /v1
+    description: Current version
+
+security:
+  - apiKeyAuth: []
+  - cookieAuth: []
+
+components:
+  securitySchemes:
+    apiKeyAuth:
+      type: http
+      scheme: bearer
+      description: API key in Authorization header as Bearer token
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: vigil_session
+      description: Session cookie for dashboard users
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: object
+              additionalProperties: true
+
+    ListMeta:
+      type: object
+      properties:
+        cursor:
+          type: string
+          nullable: true
+        has_more:
+          type: boolean
+        total:
+          type: integer
+          format: int64
+
+    Chain:
+      type: object
+      required: [id, chain_id, name, native_token, block_time_ms, enabled, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        chain_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        native_token:
+          type: string
+        block_time_ms:
+          type: integer
+        enabled:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    ChainList:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Chain"
+        meta:
+          $ref: "#/components/schemas/ListMeta"
+
+    ChainHealth:
+      type: object
+      required: [status, head_lag_blocks, reorgs_24h, fee_level, worst_endpoints]
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, down]
+        head_lag_blocks:
+          type: integer
+          format: int64
+        reorgs_24h:
+          type: integer
+          format: int64
+        fee_level:
+          type: string
+          enum: [low, normal, high, extreme]
+        worst_endpoints:
+          type: array
+          items:
+            type: string
+
+    Endpoint:
+      type: object
+      required: [id, project_id, kind, name, url, enabled, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        chain_id:
+          type: string
+          format: uuid
+          nullable: true
+        kind:
+          type: string
+          enum: [rpc, indexer, oracle, custom]
+        name:
+          type: string
+        url:
+          type: string
+        enabled:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    EndpointList:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Endpoint"
+        meta:
+          $ref: "#/components/schemas/ListMeta"
+
+    CreateEndpointRequest:
+      type: object
+      required: [project_id, kind, name, url]
+      properties:
+        project_id:
+          type: string
+          format: uuid
+        chain_id:
+          type: string
+          format: uuid
+          nullable: true
+        kind:
+          type: string
+          enum: [rpc, indexer, oracle, custom]
+        name:
+          type: string
+        url:
+          type: string
+
+    UpdateEndpointRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          nullable: true
+        url:
+          type: string
+          nullable: true
+        enabled:
+          type: boolean
+          nullable: true
+
+    EndpointHealth:
+      type: object
+      required: [status, uptime_1h_pct, latency_p95_ms, error_rate]
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, down]
+        uptime_1h_pct:
+          type: number
+          format: double
+        latency_p95_ms:
+          type: integer
+        error_rate:
+          type: number
+          format: double
+
+    OracleHealth:
+      type: object
+      required: [feed, last_answer, updated_at, stale]
+      properties:
+        feed:
+          type: string
+        last_answer:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+        stale:
+          type: boolean
+
+    FlightCheckRequest:
+      type: object
+      required: [chain_id, from, to, data, value]
+      properties:
+        chain_id:
+          type: integer
+          format: int64
+        from:
+          type: string
+        to:
+          type: string
+        data:
+          type: string
+        value:
+          type: string
+        gas:
+          type: integer
+          format: int64
+          nullable: true
+        intent:
+          type: string
+          nullable: true
+        policy_id:
+          type: string
+          format: uuid
+          nullable: true
+        max_slippage_bps:
+          type: integer
+          nullable: true
+        expected_out:
+          type: string
+          nullable: true
+        deadline_s:
+          type: integer
+          format: int64
+          nullable: true
+        project_id:
+          type: string
+          format: uuid
+          nullable: true
+
+    FlightCheckResult:
+      type: object
+      required: [id, verdict, score, checks, created_at]
+      properties:
+        id:
+          type: string
+        project_id:
+          type: string
+          nullable: true
+        chain:
+          type: string
+          nullable: true
+        verdict:
+          type: string
+          enum: [pass, warn, fail]
+        score:
+          type: number
+          format: float
+        checks:
+          type: object
+          additionalProperties: true
+        latency_ms:
+          type: integer
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    RunSummary:
+      type: object
+      required: [run_id, agent_id, trace_id, span_count, total_cost_usd, created_at]
+      properties:
+        run_id:
+          type: string
+        agent_id:
+          type: string
+        trace_id:
+          type: string
+        span_count:
+          type: integer
+        total_cost_usd:
+          type: number
+          format: double
+        tx_hash:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    RunList:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/RunSummary"
+        meta:
+          $ref: "#/components/schemas/ListMeta"
+
+    Span:
+      type: object
+      required: [trace_id, span_id, name, kind, service_name, start_time, end_time, status_code]
+      properties:
+        trace_id:
+          type: string
+        span_id:
+          type: string
+        parent_span_id:
+          type: string
+          nullable: true
+        name:
+          type: string
+        kind:
+          type: string
+        service_name:
+          type: string
+        attrs:
+          type: object
+          additionalProperties:
+            type: string
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+        status_code:
+          type: string
+        status_msg:
+          type: string
+          nullable: true
+        gen_ai_model:
+          type: string
+          nullable: true
+        input_tokens:
+          type: integer
+          nullable: true
+        output_tokens:
+          type: integer
+          nullable: true
+        llm_cost_usd:
+          type: number
+          format: double
+          nullable: true
+
+    RunDetail:
+      allOf:
+        - $ref: "#/components/schemas/RunSummary"
+        - type: object
+          required: [spans]
+          properties:
+            spans:
+              type: array
+              items:
+                $ref: "#/components/schemas/Span"
+
+    Incident:
+      type: object
+      required: [id, project_id, status, severity, title, started_at, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        rule_id:
+          type: string
+          format: uuid
+          nullable: true
+        status:
+          type: string
+          enum: [open, acknowledged, resolved]
+        severity:
+          type: string
+          enum: [critical, high, medium, low]
+        title:
+          type: string
+        started_at:
+          type: string
+          format: date-time
+        acknowledged_at:
+          type: string
+          format: date-time
+          nullable: true
+        resolved_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    IncidentList:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Incident"
+        meta:
+          $ref: "#/components/schemas/ListMeta"
+
+    Policy:
+      type: object
+      required: [id, project_id, name, version, rules, enabled, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        version:
+          type: integer
+        rules:
+          type: object
+          additionalProperties: true
+        enabled:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    PolicyList:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Policy"
+
+    CreatePolicyRequest:
+      type: object
+      required: [project_id, name, rules]
+      properties:
+        project_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        rules:
+          type: object
+          additionalProperties: true
+        enabled:
+          type: boolean
+          nullable: true
+
+    UpdatePolicyRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          nullable: true
+        rules:
+          type: object
+          additionalProperties: true
+          nullable: true
+        enabled:
+          type: boolean
+          nullable: true
+
+    AlertRule:
+      type: object
+      required: [id, project_id, name, severity, condition, enabled, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        severity:
+          type: string
+          enum: [critical, high, medium, low]
+        condition:
+          type: object
+          additionalProperties: true
+        enabled:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    AlertRuleList:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AlertRule"
+
+    CreateAlertRuleRequest:
+      type: object
+      required: [project_id, name, severity, condition]
+      properties:
+        project_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        severity:
+          type: string
+          enum: [critical, high, medium, low]
+        condition:
+          type: object
+          additionalProperties: true
+        enabled:
+          type: boolean
+          nullable: true
+
+    UpdateAlertRuleRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        severity:
+          type: string
+          enum: [critical, high, medium, low]
+          nullable: true
+        condition:
+          type: object
+          additionalProperties: true
+          nullable: true
+        enabled:
+          type: boolean
+          nullable: true
+
+    AlertChannel:
+      type: object
+      required: [id, org_id, kind, name, config, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        org_id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum: [slack, pagerduty, webhook, email]
+        name:
+          type: string
+        config:
+          type: object
+          additionalProperties: true
+        created_at:
+          type: string
+          format: date-time
+
+    AlertChannelList:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AlertChannel"
+
+    CreateAlertChannelRequest:
+      type: object
+      required: [org_id, kind, name, config]
+      properties:
+        org_id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum: [slack, pagerduty, webhook, email]
+        name:
+          type: string
+        config:
+          type: object
+          additionalProperties: true
+
+    UpdateAlertChannelRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          nullable: true
+        config:
+          type: object
+          additionalProperties: true
+          nullable: true
+
+    APIKey:
+      type: object
+      required: [id, org_id, name, key_prefix, scopes, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        org_id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+          nullable: true
+        name:
+          type: string
+        key_prefix:
+          type: string
+        scopes:
+          type: array
+          items:
+            type: string
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_used_at:
+          type: string
+          format: date-time
+          nullable: true
+        revoked_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    APIKeyWithPlaintext:
+      allOf:
+        - $ref: "#/components/schemas/APIKey"
+        - type: object
+          required: [key]
+          properties:
+            key:
+              type: string
+              description: Plaintext key shown once only
+
+    APIKeyList:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/APIKey"
+
+    CreateAPIKeyRequest:
+      type: object
+      required: [org_id, name, scopes]
+      properties:
+        org_id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+          nullable: true
+        name:
+          type: string
+        scopes:
+          type: array
+          items:
+            type: string
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    UsageCounter:
+      type: object
+      required: [org_id, day, traces, flight_checks, api_calls]
+      properties:
+        org_id:
+          type: string
+          format: uuid
+        day:
+          type: string
+          format: date
+        traces:
+          type: integer
+          format: int64
+        flight_checks:
+          type: integer
+          format: int64
+        api_calls:
+          type: integer
+          format: int64
+
+    UsageList:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/UsageCounter"
+
+  responses:
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    TooManyRequests:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    ServiceUnavailable:
+      description: Upstream service unavailable
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+paths:
+  /flight-checks:
+    post:
+      operationId: createFlightCheck
+      summary: Run a pre-transaction flight check
+      tags: [flight-checks]
+      security:
+        - apiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FlightCheckRequest"
+      responses:
+        "200":
+          description: Flight check result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FlightCheckResult"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /flight-checks/{id}:
+    get:
+      operationId: getFlightCheck
+      summary: Get a flight check result by ID
+      tags: [flight-checks]
+      security:
+        - apiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Flight check result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FlightCheckResult"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /chains:
+    get:
+      operationId: listChains
+      summary: List supported chains
+      tags: [chains]
+      parameters:
+        - name: cursor
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: List of chains
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChainList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /chains/{chainId}/health:
+    get:
+      operationId: getChainHealth
+      summary: Get chain health summary
+      tags: [chains]
+      parameters:
+        - name: chainId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Chain health summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChainHealth"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /endpoints:
+    get:
+      operationId: listEndpoints
+      summary: List endpoints
+      tags: [endpoints]
+      parameters:
+        - name: project_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: cursor
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: List of endpoints
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EndpointList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createEndpoint
+      summary: Create an endpoint
+      tags: [endpoints]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEndpointRequest"
+      responses:
+        "201":
+          description: Created endpoint
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Endpoint"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /endpoints/{id}:
+    patch:
+      operationId: updateEndpoint
+      summary: Update an endpoint
+      tags: [endpoints]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEndpointRequest"
+      responses:
+        "200":
+          description: Updated endpoint
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Endpoint"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteEndpoint
+      summary: Delete an endpoint
+      tags: [endpoints]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Endpoint deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /endpoints/{id}/health:
+    get:
+      operationId: getEndpointHealth
+      summary: Get endpoint health summary
+      tags: [endpoints]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Endpoint health summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EndpointHealth"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /oracles/{feed}/health:
+    get:
+      operationId: getOracleHealth
+      summary: Get oracle feed health
+      tags: [oracles]
+      parameters:
+        - name: feed
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Oracle health
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OracleHealth"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /runs:
+    get:
+      operationId: listRuns
+      summary: List agent runs
+      tags: [runs]
+      parameters:
+        - name: agent_id
+          in: query
+          schema:
+            type: string
+        - name: project_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: cursor
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: List of runs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /runs/{id}:
+    get:
+      operationId: getRun
+      summary: Get run detail with trace tree
+      tags: [runs]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Run detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /incidents:
+    get:
+      operationId: listIncidents
+      summary: List incidents
+      tags: [incidents]
+      parameters:
+        - name: project_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [open, acknowledged, resolved]
+        - name: cursor
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: List of incidents
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IncidentList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /incidents/{id}:
+    get:
+      operationId: getIncident
+      summary: Get an incident
+      tags: [incidents]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Incident detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Incident"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /policies:
+    get:
+      operationId: listPolicies
+      summary: List policies
+      tags: [policies]
+      parameters:
+        - name: project_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: List of policies
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PolicyList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createPolicy
+      summary: Create a policy
+      tags: [policies]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePolicyRequest"
+      responses:
+        "201":
+          description: Created policy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Policy"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /policies/{id}:
+    get:
+      operationId: getPolicy
+      summary: Get a policy
+      tags: [policies]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Policy detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Policy"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updatePolicy
+      summary: Update a policy
+      tags: [policies]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePolicyRequest"
+      responses:
+        "200":
+          description: Updated policy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Policy"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deletePolicy
+      summary: Delete a policy
+      tags: [policies]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Policy deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /alert-rules:
+    get:
+      operationId: listAlertRules
+      summary: List alert rules
+      tags: [alert-rules]
+      parameters:
+        - name: project_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: List of alert rules
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlertRuleList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createAlertRule
+      summary: Create an alert rule
+      tags: [alert-rules]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAlertRuleRequest"
+      responses:
+        "201":
+          description: Created alert rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlertRule"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /alert-rules/{id}:
+    get:
+      operationId: getAlertRule
+      summary: Get an alert rule
+      tags: [alert-rules]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Alert rule detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlertRule"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateAlertRule
+      summary: Update an alert rule
+      tags: [alert-rules]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAlertRuleRequest"
+      responses:
+        "200":
+          description: Updated alert rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlertRule"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteAlertRule
+      summary: Delete an alert rule
+      tags: [alert-rules]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Alert rule deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /alert-channels:
+    get:
+      operationId: listAlertChannels
+      summary: List alert channels
+      tags: [alert-channels]
+      parameters:
+        - name: org_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: List of alert channels
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlertChannelList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createAlertChannel
+      summary: Create an alert channel
+      tags: [alert-channels]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAlertChannelRequest"
+      responses:
+        "201":
+          description: Created alert channel
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlertChannel"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /alert-channels/{id}:
+    get:
+      operationId: getAlertChannel
+      summary: Get an alert channel
+      tags: [alert-channels]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Alert channel detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlertChannel"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateAlertChannel
+      summary: Update an alert channel
+      tags: [alert-channels]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAlertChannelRequest"
+      responses:
+        "200":
+          description: Updated alert channel
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlertChannel"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteAlertChannel
+      summary: Delete an alert channel
+      tags: [alert-channels]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Alert channel deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api-keys:
+    get:
+      operationId: listAPIKeys
+      summary: List API keys
+      tags: [api-keys]
+      parameters:
+        - name: org_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: List of API keys
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIKeyList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createAPIKey
+      summary: Create an API key
+      tags: [api-keys]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAPIKeyRequest"
+      responses:
+        "201":
+          description: Created API key with plaintext shown once
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIKeyWithPlaintext"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api-keys/{id}:
+    delete:
+      operationId: deleteAPIKey
+      summary: Revoke an API key
+      tags: [api-keys]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: API key revoked
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /usage:
+    get:
+      operationId: getUsage
+      summary: Get usage counters by day
+      tags: [usage]
+      parameters:
+        - name: org_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Usage counters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsageList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"

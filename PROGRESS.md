@@ -1,5 +1,45 @@
 # Progress
 
+## Task 6 — Public REST API ✅
+
+**Completed: 2026-11-13**
+
+### What was built
+
+| Area | Details |
+|---|---|
+| **openapi.yaml** | Full OpenAPI 3.1 spec: 35+ endpoints, `apiKeyAuth` + `cookieAuth` schemes, all schemas |
+| **oapi-codegen.yaml** | Config for chi-server + models + strict-server code generation |
+| **gen/server.gen.go** | Generated via `oapi-codegen@v2.3.0`; 4944 lines, `StrictServerInterface` with 35 methods |
+| **spec.go** | `//go:embed openapi.yaml` → `OpenAPISpec []byte` for in-process spec serving |
+| **internal/auth** | `APIKeyAuth` Bearer middleware (SHA-256 hash → Redis 7d cache → Postgres), `RequireScope`, cookie fallback |
+| **internal/ratelimit** | Sliding-window middleware via Redis; plan limits (free=100/m, pro=1k, team=5k); idempotency caching (24h) |
+| **internal/metering** | Async `IncrementAPICalls` fire-and-forget; `StartRollup` background goroutine |
+| **internal/billing** | `Client` interface; `StripeBillingClient` (checkout, subscription, webhook HMAC-SHA256 verify); `NoopBillingClient` |
+| **internal/docs** | Redoc UI at `/docs`, raw spec at `/openapi.yaml` via embedded `redoc.html` |
+| **internal/handler** | Full `StrictServerInterface` impl; `CreateFlightCheck` proxies to `FLIGHTCHECK_URL`; audit + meter goroutines |
+| **cmd/api/main.go** | chi router, CORS, auth+ratelimit middleware, `MaxBytesHandler` 1MB, PG/Redis/CH optional |
+| **postgres extensions** | `chains_ext.go`, `endpoints_ext.go`, `alert_rules.go`, `alert_channels.go`, `incidents_ext.go`, `policies_ext.go`, `api_keys_ext.go`, `usage_ext.go`, `audit.go` |
+| **clickhouse/query.go** | `ChainHealthSummary`, `EndpointHealthSummary`, `OracleHealthSummary`, `RunSummary`, `RunDetail`; full query methods |
+| **Tests** | `auth_test.go`, `ratelimit_test.go`, `stripe_test.go`, `contract_test.go` — all pass, 0 lint issues |
+| **.env.example** | Added `FLIGHTCHECK_URL`, `CORS_ALLOWED_ORIGINS`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_SUCCESS_URL`, `STRIPE_CANCEL_URL` |
+
+### Decisions
+
+- **oapi-codegen v2.3.0** — v2.8.2 generated code using `runtime.BindJSONBody` which doesn't exist in runtime v1.6.0; pinned to v2.3.0.
+- **`openapi_types.UUID` is a type alias** — `= uuid.UUID` so no conversion needed; all `uuid.UUID(x)` wrappers removed (unconvert).
+- **`spec.go` at module root** — go:embed can't traverse `..`; spec.go lives next to `openapi.yaml` and exports `OpenAPISpec`.
+- **Stripe v82 no `CurrentPeriodEnd`** — struct field removed in v82; stub uses `time.Now().Add(30d)`.
+- **`Client` not `BillingClient`** — avoids revive stutter (`billing.BillingClient`).
+- **Graceful degradation** — all handlers return empty lists (not errors) when DB/CH is nil; lets the service start without infra.
+
+### Open TODOs
+
+- Wire real Stripe price IDs from env vars (currently hardcoded stubs in `priceIDForPlan`)
+- Add per-plan DB enforcement (verify org subscription plan before granting rate limit tier)
+- Add OpenAPI spec validation middleware (reject requests that don't match spec)
+- Add integration tests with docker-compose (PG + Redis required for auth + rate limit flows)
+
 ## Task 5 — Agent tracing and OTel ingestion ✅
 
 **Completed: 2026-11-13**

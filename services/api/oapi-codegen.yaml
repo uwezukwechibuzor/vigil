@@ -1,0 +1,6 @@
+package: gen
+generate:
+  chi-server: true
+  models: true
+  strict-server: true
+output: gen/server.gen.go
