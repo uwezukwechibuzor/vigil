@@ -5,8 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	redisdb "github.com/uwezukwechibuzor/vigil/services/internal/db/redis"
@@ -137,6 +139,56 @@ func (r *responseRecorder) WriteHeader(code int) { r.code = code }
 func (r *responseRecorder) Write(b []byte) (int, error) {
 	r.body = append(r.body, b...)
 	return len(b), nil
+}
+
+// IPMiddleware limits unauthenticated requests by client IP.
+// limit is requests per window duration. It degrades gracefully when Redis is unavailable.
+func IPMiddleware(limiter Limiter, limit int, window time.Duration) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if limiter == nil {
+				next.ServeHTTP(w, r)
+				return
+			}
+			ip := clientIP(r)
+			res, err := limiter.Allow(r.Context(), "ip:"+ip, limit, window)
+			if err != nil || res == nil {
+				next.ServeHTTP(w, r)
+				return
+			}
+			w.Header().Set("X-RateLimit-Limit", strconv.Itoa(limit))
+			w.Header().Set("X-RateLimit-Remaining", strconv.FormatInt(res.Remaining, 10))
+			if !res.Allowed {
+				writeTooManyRequests(w, res.ResetAt)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// clientIP extracts the real client IP, preferring X-Forwarded-For when trusted.
+func clientIP(r *http.Request) string {
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		// Take the first (leftmost) address
+		if idx := len(xff); idx > 0 {
+			parts := xff[:idx]
+			if comma := len(parts); comma > 0 {
+				// simple split: take everything before the first comma
+				for i, c := range parts {
+					if c == ',' {
+						return strings.TrimSpace(parts[:i])
+					}
+				}
+				return strings.TrimSpace(parts)
+			}
+		}
+	}
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
 }
 
 func writeTooManyRequests(w http.ResponseWriter, resetAt time.Time) {

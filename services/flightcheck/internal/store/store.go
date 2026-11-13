@@ -40,7 +40,7 @@ func (s *Store) Save(ctx context.Context, req *check.Request, resp *check.Respon
 				Verdict:   string(resp.Verdict),
 				Score:     float32(resp.RiskScore),
 				Checks:    string(checksJSON),
-				LatencyMS: uint32(resp.LatencyMS), //nolint:gosec
+				LatencyMS: uint32(resp.LatencyMS), // #nosec G115 -- latency in milliseconds never exceeds uint32 max (~49 days)
 			}
 			if err := s.ch.InsertFlightCheck(ctx, row); err != nil {
 				s.logger.Error("clickhouse insert flight check", "error", err)

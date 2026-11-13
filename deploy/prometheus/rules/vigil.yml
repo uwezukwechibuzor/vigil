@@ -1,0 +1,121 @@
+groups:
+  # ── SLO: API availability 99.9% ────────────────────────────────────────────
+  - name: vigil.slo.api
+    interval: 30s
+    rules:
+      - record: vigil:api:request_success_rate5m
+        expr: |
+          sum(rate(http_requests_total{service="api",status!~"5.."}[5m]))
+          /
+          sum(rate(http_requests_total{service="api"}[5m]))
+
+      - alert: APIAvailabilityBelowSLO
+        expr: vigil:api:request_success_rate5m < 0.999
+        for: 5m
+        labels:
+          severity: critical
+          team: oncall
+        annotations:
+          summary: "API availability below 99.9% SLO"
+          description: "API success rate is {{ $value | humanizePercentage }} over 5m (SLO: 99.9%)"
+          runbook_url: "https://github.com/uwezukwechibuzor/vigil/blob/main/docs/runbooks/api-availability.md"
+
+  # ── SLO: Flight check p95 < 1500ms ─────────────────────────────────────────
+  - name: vigil.slo.flightcheck
+    interval: 30s
+    rules:
+      - record: vigil:flightcheck:p95_latency5m
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket{service="flightcheck"}[5m])) by (le)
+          )
+
+      - alert: FlightCheckLatencySLOBreached
+        expr: vigil:flightcheck:p95_latency5m > 1.5
+        for: 5m
+        labels:
+          severity: critical
+          team: oncall
+        annotations:
+          summary: "Flight check p95 latency above 1.5s SLO"
+          description: "p95 = {{ $value | humanizeDuration }} (SLO: 1.5s)"
+          runbook_url: "https://github.com/uwezukwechibuzor/vigil/blob/main/docs/runbooks/flightcheck-latency.md"
+
+  # ── Service health ──────────────────────────────────────────────────────────
+  - name: vigil.health
+    rules:
+      - alert: ServiceDown
+        expr: up{job=~"vigil.*"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Vigil service {{ $labels.job }} is down"
+          description: "{{ $labels.job }} has been unreachable for 2 minutes"
+          runbook_url: "https://github.com/uwezukwechibuzor/vigil/blob/main/docs/runbooks/service-down.md"
+
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[5m])) by (service)
+          /
+          sum(rate(http_requests_total[5m])) by (service)
+          > 0.01
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate on {{ $labels.service }}"
+          description: "Error rate is {{ $value | humanizePercentage }}"
+
+      - alert: HighMemoryUsage
+        expr: container_memory_working_set_bytes{namespace="vigil"} / container_spec_memory_limit_bytes{namespace="vigil"} > 0.85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Pod {{ $labels.pod }} using >85% memory limit"
+
+  # ── Ingest / collector ──────────────────────────────────────────────────────
+  - name: vigil.ingest
+    rules:
+      - alert: IngestQueueBackpressure
+        expr: vigil_ingest_queue_depth > 50000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Ingest queue depth is high"
+          description: "Queue depth: {{ $value }} spans"
+
+      - alert: SpanDropRate
+        expr: rate(vigil_ingest_spans_dropped_total[5m]) > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Spans are being dropped"
+          description: "Drop rate: {{ $value }} spans/s"
+
+  # ── Redis ───────────────────────────────────────────────────────────────────
+  - name: vigil.redis
+    rules:
+      - alert: RedisConnectionFailed
+        expr: vigil_redis_errors_total > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis connection errors detected"
+          description: "Redis error count: {{ $value }}"
+
+  # ── Database ────────────────────────────────────────────────────────────────
+  - name: vigil.db
+    rules:
+      - alert: DBSlowQueries
+        expr: histogram_quantile(0.99, rate(vigil_db_query_duration_seconds_bucket[5m])) > 1.0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "DB query p99 above 1s"
+          description: "DB p99 latency: {{ $value | humanizeDuration }}"

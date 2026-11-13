@@ -50,7 +50,7 @@ func (s *ShardManager) Acquire(ctx context.Context) (context.Context, context.Ca
 	s.logger.Info("shard lease acquired", "replica_id", s.replicaID)
 
 	leaseCtx, cancel := context.WithCancel(ctx)
-	go s.renew(leaseCtx)
+	go s.renew(leaseCtx) // #nosec G118 -- leaseCtx is derived from the caller's ctx; not using context.Background
 	return leaseCtx, cancel, nil
 }
 

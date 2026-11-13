@@ -1,0 +1,26 @@
+global:
+  image:
+    tag: "stable"
+
+services:
+  api:
+    replicas: 3
+    hpa:
+      minReplicas: 3
+      maxReplicas: 20
+  flightcheck:
+    replicas: 3
+    hpa:
+      minReplicas: 3
+      maxReplicas: 30
+  collector:
+    replicas: 3
+    hpa:
+      minReplicas: 3
+      maxReplicas: 20
+  ingest:
+    replicas: 2
+  insights:
+    replicas: 2
+  alerts:
+    replicas: 2

@@ -117,6 +117,10 @@ func main() {
 			1<<20, // 1 MB
 		))
 
+		// --- data portability routes (GDPR export/delete) ---
+		r.Get("/v1/data/export", h.DataExportHandler)
+		r.Post("/v1/data/delete", h.DataDeleteHandler)
+
 		logger.Info("api service routes registered")
 	})
 }

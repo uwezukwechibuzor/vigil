@@ -47,5 +47,5 @@ func (s *Sampler) ShouldKeep(span dbch.Span, rate float64) bool {
 	if rate >= 1 {
 		return true
 	}
-	return rand.Float64() < rate //nolint:gosec // non-cryptographic sampling is intentional
+	return rand.Float64() < rate // #nosec G404 -- non-cryptographic sampling is intentional
 }

@@ -34,7 +34,7 @@ func (m *Meter) IncrementAPICalls(_ context.Context, orgID uuid.UUID) {
 	if m.db == nil {
 		return
 	}
-	go func() {
+	go func() { // #nosec G118 -- intentionally outlives the request context; uses its own timeout
 		rCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		if err := m.db.IncrementAPICalls(rCtx, orgID); err != nil {

@@ -72,6 +72,7 @@ func main() {
 		os.Exit(1)
 	}
 
+	// #nosec G704 -- dev script, URL is from INGEST_URL env var (not user HTTP input)
 	httpReq, err := http.NewRequestWithContext(context.Background(), http.MethodPost,
 		ingestURL+"/v1/traces", bytes.NewReader(body))
 	if err != nil {
@@ -81,7 +82,7 @@ func main() {
 	httpReq.Header.Set("Content-Type", "application/x-protobuf")
 
 	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(httpReq)
+	resp, err := client.Do(httpReq) // #nosec G704 -- dev script
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "http error: %v\n", err)
 		os.Exit(1)

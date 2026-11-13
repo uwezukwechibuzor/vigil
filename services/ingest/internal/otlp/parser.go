@@ -47,8 +47,8 @@ func convertSpan(sp *tracepb.Span, serviceName string) dbch.Span {
 		Kind:         kindString(sp.Kind),
 		ServiceName:  serviceName,
 		Attrs:        make(map[string]string),
-		StartTime:    time.Unix(0, int64(sp.StartTimeUnixNano)).UTC(),
-		EndTime:      time.Unix(0, int64(sp.EndTimeUnixNano)).UTC(),
+		StartTime:    time.Unix(0, int64(sp.StartTimeUnixNano)).UTC(), // #nosec G115 -- nanosecond unix timestamp fits int64 for all practical dates
+		EndTime:      time.Unix(0, int64(sp.EndTimeUnixNano)).UTC(),   // #nosec G115 -- same
 		StatusCode:   statusCodeString(sp.Status),
 		StatusMsg:    statusMsg(sp.Status),
 	}

@@ -1,0 +1,186 @@
+# Default values for vigil.
+# Override with values-staging.yaml or values-prod.yaml.
+
+global:
+  image:
+    registry: ghcr.io/uwezukwechibuzor
+    tag: latest
+    pullPolicy: IfNotPresent
+  namespace: vigil
+
+# External secrets operator — secrets pulled from AWS Secrets Manager
+externalSecrets:
+  enabled: true
+  refreshInterval: "5m"
+  secretStoreRef:
+    name: vigil-secret-store
+    kind: ClusterSecretStore
+
+services:
+  api:
+    enabled: true
+    replicas: 2
+    image:
+      name: vigil-api
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+      limits:
+        cpu: "500m"
+        memory: "512Mi"
+    hpa:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 10
+      targetCPUUtilizationPercentage: 70
+    pdb:
+      minAvailable: 1
+    env:
+      PORT: "8080"
+    service:
+      port: 8080
+
+  flightcheck:
+    enabled: true
+    replicas: 2
+    image:
+      name: vigil-flightcheck
+    resources:
+      requests:
+        cpu: "200m"
+        memory: "256Mi"
+      limits:
+        cpu: "1000m"
+        memory: "1Gi"
+    hpa:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 20
+      targetCPUUtilizationPercentage: 60
+    pdb:
+      minAvailable: 1
+    env:
+      PORT: "8081"
+    service:
+      port: 8081
+
+  collector:
+    enabled: true
+    replicas: 2
+    image:
+      name: vigil-collector
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "256Mi"
+      limits:
+        cpu: "500m"
+        memory: "512Mi"
+    hpa:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 15
+      targetCPUUtilizationPercentage: 70
+    pdb:
+      minAvailable: 1
+    env:
+      PORT: "4318"
+    service:
+      port: 4318
+
+  ingest:
+    enabled: true
+    replicas: 2
+    image:
+      name: vigil-ingest
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+      limits:
+        cpu: "500m"
+        memory: "512Mi"
+    hpa:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 10
+      targetCPUUtilizationPercentage: 70
+    pdb:
+      minAvailable: 1
+    env:
+      PORT: "8083"
+    service:
+      port: 8083
+
+  insights:
+    enabled: true
+    replicas: 1
+    image:
+      name: vigil-insights
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+      limits:
+        cpu: "500m"
+        memory: "256Mi"
+    hpa:
+      enabled: false
+    pdb:
+      minAvailable: 1
+    env:
+      PORT: "8084"
+    service:
+      port: 8084
+
+  alerts:
+    enabled: true
+    replicas: 1
+    image:
+      name: vigil-alerts
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "64Mi"
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
+    hpa:
+      enabled: false
+    pdb:
+      minAvailable: 1
+    env:
+      PORT: "8085"
+    service:
+      port: 8085
+
+# Postgres connection (injected via External Secrets)
+postgres:
+  host: "postgres"
+  port: 5432
+  database: "vigil"
+  sslmode: "require"
+
+# Redis connection
+redis:
+  host: "redis"
+  port: 6379
+
+# ClickHouse connection
+clickhouse:
+  host: "clickhouse"
+  port: 9000
+  database: "vigil"
+
+# Ingress
+ingress:
+  enabled: false
+  className: "nginx"
+  annotations: {}
+  hosts:
+    - host: api.vigil.dev
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []

@@ -1,0 +1,23 @@
+global:
+  image:
+    tag: "main"
+
+services:
+  api:
+    replicas: 1
+    hpa:
+      minReplicas: 1
+      maxReplicas: 3
+  flightcheck:
+    replicas: 1
+    hpa:
+      minReplicas: 1
+      maxReplicas: 5
+  collector:
+    replicas: 1
+  ingest:
+    replicas: 1
+  insights:
+    replicas: 1
+  alerts:
+    replicas: 1

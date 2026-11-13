@@ -170,7 +170,7 @@ func evmBlockToBlock(b *ethtypes.Block) *Block {
 	return &Block{
 		Number:  b.NumberU64(),
 		Hash:    b.Hash().Hex(),
-		Time:    time.Unix(int64(b.Time()), 0).UTC(),
+		Time:    time.Unix(int64(b.Time()), 0).UTC(), // #nosec G115 -- block timestamp (seconds since epoch) fits int64 for all historical/near-future blocks
 		BaseFee: b.BaseFee(),
 	}
 }

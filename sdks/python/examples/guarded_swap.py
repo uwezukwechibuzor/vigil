@@ -1,6 +1,6 @@
 """Example: guarded_send with web3.py."""
 
-from vigil import VigilClient, FlightCheckRequest, guarded_send
+from vigil import FlightCheckRequest, VigilClient
 
 vigil = VigilClient()
 
@@ -21,6 +21,7 @@ tx = FlightCheckRequest(
     }
 )
 
+# from vigil import guarded_send
 # result = guarded_send(vigil, send_fn, tx, on_warn=lambda r: print("warn:", r.score))
 # print("tx_hash:", result["tx_hash"])
 print("Example ready — configure web3 send_fn to execute")

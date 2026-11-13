@@ -106,7 +106,7 @@ func decodeLatestRoundData(data []byte) (*big.Int, time.Time, error) {
 
 	// Slot 3 (bytes 96..128): updatedAt (uint256)
 	updatedAtBytes := data[96:128]
-	updatedAtUnix := int64(binary.BigEndian.Uint64(updatedAtBytes[24:32]))
+	updatedAtUnix := int64(binary.BigEndian.Uint64(updatedAtBytes[24:32])) // #nosec G115 -- unix timestamp extracted from ABI-encoded uint256; fits int64 for any real date
 	updatedAt := time.Unix(updatedAtUnix, 0).UTC()
 
 	return answer, updatedAt, nil

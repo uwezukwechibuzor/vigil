@@ -37,6 +37,9 @@ type noopWriter struct{}
 func (noopWriter) Write(p []byte) (int, error) { return len(p), nil }
 
 func TestCacheSetGet(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
 	ctx := context.Background()
 	c, err := redis.New(ctx, startRedis(t))
 	if err != nil {
@@ -65,6 +68,9 @@ func TestCacheSetGet(t *testing.T) {
 }
 
 func TestCacheMiss(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
 	ctx := context.Background()
 	c, err := redis.New(ctx, startRedis(t))
 	if err != nil {
@@ -83,6 +89,9 @@ func TestCacheMiss(t *testing.T) {
 }
 
 func TestRateLimiter(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
 	ctx := context.Background()
 	c, err := redis.New(ctx, startRedis(t))
 	if err != nil {
@@ -114,6 +123,9 @@ func TestRateLimiter(t *testing.T) {
 }
 
 func TestStreamsProducerConsumer(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
 	ctx := context.Background()
 	c, err := redis.New(ctx, startRedis(t))
 	if err != nil {
@@ -157,6 +169,9 @@ func TestStreamsProducerConsumer(t *testing.T) {
 }
 
 func TestStreamsDeadLetter(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
 	ctx := context.Background()
 	c, err := redis.New(ctx, startRedis(t))
 	if err != nil {

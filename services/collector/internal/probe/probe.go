@@ -60,7 +60,7 @@ func DefaultConfig() Config {
 func jitter(cfg Config) time.Duration {
 	base := cfg.Interval
 	delta := float64(base) * cfg.JitterPct
-	return base + time.Duration((rand.Float64()*2-1)*delta)
+	return base + time.Duration((rand.Float64()*2-1)*delta) // #nosec G404 -- non-cryptographic jitter for probe scheduling; crypto/rand not needed here
 }
 
 // Loop runs p on a jittered schedule, sending results to out until ctx is cancelled.

@@ -38,6 +38,9 @@ func startPostgres(t *testing.T) string {
 }
 
 func TestPostgresMigrations(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
 	dsn := startPostgres(t)
 	ctx := context.Background()
 	logger := noopLogger()
@@ -62,6 +65,9 @@ func TestPostgresMigrations(t *testing.T) {
 }
 
 func TestOrgAndAPIKey(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
 	dsn := startPostgres(t)
 	ctx := context.Background()
 	logger := noopLogger()
