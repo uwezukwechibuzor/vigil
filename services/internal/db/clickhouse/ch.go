@@ -84,7 +84,7 @@ func (c *Client) InsertEndpointProbes(ctx context.Context, rows []EndpointProbe)
 	return batch.Send()
 }
 
-// Span is an OTel-compatible trace span.
+// Span is an OTel-compatible trace span enriched with Vigil agent conventions.
 type Span struct {
 	TraceID      string
 	SpanID       string
@@ -102,6 +102,20 @@ type Span struct {
 	GenAIOp      string
 	InputTokens  uint32
 	OutputTokens uint32
+	// Vigil agent conventions.
+	VigilAgentID       string
+	VigilRunID         string
+	VigilWallet        string
+	VigilChainID       uint64
+	VigilTxHash        string
+	VigilFlightCheckID string
+	VigilIntent        string
+	// Cost tracking.
+	LLMCostUSD float64
+	GasCostUSD float64
+	// Onchain linking.
+	Linked        uint8
+	SilentFailure uint8
 }
 
 // FlightCheckRow is one flight check result persisted to ClickHouse.
@@ -138,10 +152,53 @@ func (c *Client) InsertSpans(ctx context.Context, rows []Span) error {
 			r.TraceID, r.SpanID, r.ParentSpanID, r.Name, r.Kind, r.ServiceName,
 			r.Attrs, r.StartTime, r.EndTime, r.StatusCode, r.StatusMsg,
 			r.GenAISystem, r.GenAIModel, r.GenAIOp, r.InputTokens, r.OutputTokens,
+			r.VigilAgentID, r.VigilRunID, r.VigilWallet, r.VigilChainID,
+			r.VigilTxHash, r.VigilFlightCheckID, r.VigilIntent,
+			r.LLMCostUSD, r.GasCostUSD, r.Linked, r.SilentFailure,
 			time.Now(),
 		); err != nil {
 			return fmt.Errorf("append span: %w", err)
 		}
 	}
 	return batch.Send()
+}
+
+// UnlinkedSpansWithTx returns spans that have a tx hash but have not been linked yet.
+func (c *Client) UnlinkedSpansWithTx(ctx context.Context, limit int) ([]Span, error) {
+	rows, err := c.conn.Query(ctx,
+		`SELECT trace_id, span_id, service_name, vigil_tx_hash, vigil_chain_id,
+		        gen_ai_model, input_tokens, output_tokens
+		   FROM spans
+		  WHERE vigil_tx_hash != '' AND linked = 0
+		  LIMIT ?`, limit)
+	if err != nil {
+		return nil, fmt.Errorf("query unlinked spans: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var spans []Span
+	for rows.Next() {
+		var s Span
+		if err := rows.Scan(
+			&s.TraceID, &s.SpanID, &s.ServiceName, &s.VigilTxHash, &s.VigilChainID,
+			&s.GenAIModel, &s.InputTokens, &s.OutputTokens,
+		); err != nil {
+			return nil, fmt.Errorf("scan unlinked span: %w", err)
+		}
+		spans = append(spans, s)
+	}
+	return spans, rows.Err()
+}
+
+// MarkSpanLinked sets linked=1 and records silent_failure and gas_cost_usd for a span.
+func (c *Client) MarkSpanLinked(ctx context.Context, traceID, spanID string, silentFailure uint8, gasCostUSD float64) error {
+	err := c.conn.Exec(ctx,
+		`ALTER TABLE spans UPDATE linked = 1, silent_failure = ?, gas_cost_usd = ?
+		  WHERE trace_id = ? AND span_id = ?`,
+		silentFailure, gasCostUSD, traceID, spanID,
+	)
+	if err != nil {
+		return fmt.Errorf("mark span linked: %w", err)
+	}
+	return nil
 }

@@ -1,5 +1,52 @@
 # Progress
 
+## Task 5 — Agent tracing and OTel ingestion ✅
+
+**Completed: 2026-11-13**
+
+### What was built
+
+| Area | Details |
+|---|---|
+| **Migration 005 update** | Added 11 Vigil agent + cost + linking columns to `spans` CREATE TABLE |
+| **Migration 008** | `ALTER TABLE spans ADD COLUMN IF NOT EXISTS` for all 11 new columns (upgrades existing CH installs) |
+| **Span struct** | Added `VigilAgentID`, `VigilRunID`, `VigilWallet`, `VigilChainID`, `VigilTxHash`, `VigilFlightCheckID`, `VigilIntent`, `LLMCostUSD`, `GasCostUSD`, `Linked`, `SilentFailure` to `ch.go` |
+| **InsertSpans** | Updated column order to match new CREATE TABLE |
+| **UnlinkedSpansWithTx** | Queries spans with tx hash but `linked=0` |
+| **MarkSpanLinked** | Sets `linked=1`, `silent_failure`, `gas_cost_usd` via ALTER UPDATE |
+| **internal/auth** | API key middleware (SHA-256 hash lookup in Postgres; skip if no PG) |
+| **internal/otlp/parser** | Converts OTLP ResourceSpans → Span structs; extracts GenAI + Vigil attrs |
+| **internal/otlp/scrubber** | Redacts private keys (64-hex), mnemonics (12/24 words), API keys (sk-…); protects addresses |
+| **internal/otlp/scrubber_test** | 8 unit tests (no Docker) |
+| **internal/otlp/handler** | TracesHandler, MetricsHandler, LogsHandler; back-pressure via XLEN; Prometheus metrics |
+| **internal/sampler** | Head-based: always keep errors + tx spans; probabilistic for the rest |
+| **internal/writer** | Consumer-group Redis Stream → ClickHouse batch writer; enqueues tx spans for linking |
+| **internal/linker** | Fetches onchain receipts; retries 10×; computes gas cost; marks spans linked |
+| **internal/cost** | LLMCost (token × price) and GasCostUSD (gas × gas_price × eth_price) |
+| **cmd/ingest/main.go** | Full main: optional PG/CH, required Redis, chain clients from env, writer + linker goroutines |
+| **scripts/sample_trace** | Standalone script: sends one OTLP protobuf trace to verify end-to-end ingestion |
+| **integration/ingest_test.go** | End-to-end test via Redis + ClickHouse testcontainers (Docker-skipped) |
+| **integration/linker_test.go** | Silent failure logic tests + Anvil stub (Docker-skipped) |
+| **integration/load_test.go** | 2000 spans/s load test against Redis (Docker-skipped) |
+| **docs/conventions.md** | Vigil span attribute conventions reference |
+| **.env.example** | Added `INGEST_MAX_PAYLOAD_BYTES`, `INGEST_MAX_QUEUE_LEN`, `INGEST_SAMPLE_RATE`, chain RPC examples |
+
+### Decisions
+
+- **Parser uses `fmt.Sprintf` for unknown AnyValue types** — safe fallback; avoids panics on custom attribute types.
+- **Scrubber protects addresses** — `0x`+40-hex is a valid wallet address; only 64-hex strings are private keys.
+- **Writer uses consumer groups** — multiple replica instances can run without double-processing.
+- **Linker queue is non-blocking** — drops spans if full (10k cap) rather than slowing ingestion.
+- **MarkSpanLinked uses ALTER UPDATE** — ClickHouse MergeTree doesn't have traditional UPDATE; ALTER TABLE … UPDATE is the idiomatic mutation approach.
+- **CH/PG are optional at startup** — the ingest service starts and accepts spans even if ClickHouse is unavailable; the writer will error-log but not crash.
+
+### Open TODOs
+
+- Wire a real `GasPricer` implementation (e.g. CoinGecko API)
+- Add per-project sample rate override (store in Postgres, cache in Redis)
+- Add Anvil-based linker integration test
+- Migrate MarkSpanLinked to use ReplacingMergeTree approach for better performance
+
 ## Task 4 — Flight check engine ✅
 
 **Completed: 2026-11-13**

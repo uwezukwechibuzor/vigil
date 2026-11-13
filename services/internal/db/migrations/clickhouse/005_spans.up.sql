@@ -17,6 +17,20 @@ CREATE TABLE IF NOT EXISTS spans (
     gen_ai_op       String DEFAULT '',
     input_tokens    UInt32 DEFAULT 0,
     output_tokens   UInt32 DEFAULT 0,
+    -- Vigil agent conventions
+    vigil_agent_id        String DEFAULT '',
+    vigil_run_id          String DEFAULT '',
+    vigil_wallet          String DEFAULT '',
+    vigil_chain_id        UInt64 DEFAULT 0,
+    vigil_tx_hash         String DEFAULT '',
+    vigil_flight_check_id String DEFAULT '',
+    vigil_intent          String DEFAULT '',
+    -- Cost tracking
+    llm_cost_usd          Float64 DEFAULT 0,
+    gas_cost_usd          Float64 DEFAULT 0,
+    -- Onchain linking
+    linked                UInt8 DEFAULT 0,
+    silent_failure        UInt8 DEFAULT 0,
     created_at      DateTime DEFAULT now()
 ) ENGINE = MergeTree()
 PARTITION BY toYYYYMM(created_at)
