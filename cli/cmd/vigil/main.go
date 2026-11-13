@@ -1,9 +1,14 @@
 // Package main is the entrypoint for the vigil CLI.
 package main
 
-import "fmt"
+import (
+	"os"
+
+	"github.com/uwezukwechibuzor/vigil/cli/internal/cmd"
+)
 
 func main() {
-	fmt.Println("vigil — reliability layer for onchain AI agents")
-	fmt.Println("Run `vigil --help` for usage.")
+	if err := cmd.Root().Execute(); err != nil {
+		os.Exit(1)
+	}
 }

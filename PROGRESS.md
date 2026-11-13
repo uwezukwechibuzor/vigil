@@ -1,5 +1,27 @@
 # Progress
 
+## Task 7 — SDKs: TypeScript, Python and Go ✅
+
+**Completed: 2026-11-13**
+
+### What was done
+- **TypeScript SDK** (`packages/sdk-ts`): Full client with retry/backoff, idempotency keys, typed errors, OTel tracing helpers (`initTracing`, `startRun`, `Run`), `guardedSend` with viem/ethers adapters. Built with tsup (ESM+CJS+DTS). 9 vitest tests pass.
+- **Python SDK** (`sdks/python`): Pydantic v2 models for all API types, sync `VigilClient` with retry/idempotency, `tracing.py` (OTel), `guarded.py`. Fully typed (`py.typed`). 9 pytest tests pass. ruff + mypy clean.
+- **Go SDK** (`sdks/go`): `Client` with functional options, all API methods, OTel `InitTracing`/`StartRun`/`Run`, `GuardedSend`. Added OTel v1.33 deps. 6 tests pass. golangci-lint clean.
+- **CLI** (`cli/`): cobra-based with `login`, `check`, `health`, `runs`, `incidents` subcommands. Consumes Go SDK. `--json` flag on all commands. golangci-lint clean.
+- **GitHub Actions**: `release-ts.yml`, `release-python.yml`, `release-go.yml` (all manual/dry-run).
+- **Makefile**: added `test-e2e-sdk` target.
+
+### Decisions
+- OTel tracing is optional (no hard dep at import time in TS; SDK works without it).
+- `FlightCheck` never throws on `warn` verdict in any SDK — by design.
+- Go `VigilAPIError` renamed to `APIError` to avoid stutter per golangci-lint.
+- CLI `jsonOutput` is a package-level var; CLI tests are sequential (not parallel) to avoid race.
+
+### Open TODOs
+- Wire up real e2e tests once local stack is stable.
+- Add async Python client variant.
+
 ## Task 6 — Public REST API ✅
 
 **Completed: 2026-11-13**

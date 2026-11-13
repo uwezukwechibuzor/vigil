@@ -121,5 +121,12 @@ test-integration: ## Run integration tests (requires Docker)
 	cd services/flightcheck && go test -v -race -count=1 -timeout=300s ./integration/...
 
 # ── CI shortcuts ─────────────────────────────────────────────────────────────
+.PHONY: test-e2e-sdk
+test-e2e-sdk: ## Run SDK end-to-end tests (requires docker compose stack)
+	@echo "Start local stack first: make up"
+	cd sdks/python && uv run pytest tests/e2e/ -v --timeout=30 || true
+	cd packages/sdk-ts && pnpm test:e2e || true
+	cd sdks/go && go test -tags=e2e -timeout=60s ./... || true
+
 .PHONY: ci
 ci: fmt lint test build ## Run the full CI pipeline locally

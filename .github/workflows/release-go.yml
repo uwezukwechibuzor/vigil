@@ -1,0 +1,24 @@
+name: Release Go SDK
+# Tag-based goreleaser release — disabled until GORELEASER_KEY secret exists.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (no release)"
+        type: boolean
+        default: true
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-go@v5
+        with: { go-version: "1.23" }
+      - name: Release (dry run)
+        run: |
+          if [ "${{ inputs.dry_run }}" = "false" ]; then
+            echo "Would run goreleaser here with GORELEASER_KEY"
+          else
+            echo "Dry run: would release vigil-go via goreleaser"
+          fi

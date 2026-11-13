@@ -1,0 +1,26 @@
+name: Release TS SDK
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (no publish)"
+        type: boolean
+        default: true
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22", registry-url: "https://registry.npmjs.org" }
+      - run: pnpm install
+      - run: pnpm turbo run build
+      - run: |
+          if [ "${{ inputs.dry_run }}" = "false" ]; then
+            cd packages/sdk-ts && pnpm publish --access public
+          else
+            echo "Dry run: would publish @vigil/sdk-ts"
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
