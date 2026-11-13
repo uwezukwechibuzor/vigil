@@ -33,6 +33,13 @@ func MigratePostgresDown(_ context.Context, dsn string, logger *slog.Logger) err
 }
 
 func pgMigrate(dsn string, logger *slog.Logger, up bool) error {
+	// golang-migrate's pgx/v5 driver is registered under the "pgx5://" scheme.
+	// Accept the standard "postgres://" or "postgresql://" prefix and convert.
+	migDSN := strings.NewReplacer(
+		"postgres://", "pgx5://",
+		"postgresql://", "pgx5://",
+	).Replace(dsn)
+
 	subFS, err := fs.Sub(postgresMigFS, "migrations/postgres")
 	if err != nil {
 		return fmt.Errorf("postgres migration fs: %w", err)
@@ -41,7 +48,7 @@ func pgMigrate(dsn string, logger *slog.Logger, up bool) error {
 	if err != nil {
 		return fmt.Errorf("postgres migration source: %w", err)
 	}
-	m, err := migrate.NewWithSourceInstance("iofs", src, dsn)
+	m, err := migrate.NewWithSourceInstance("iofs", src, migDSN)
 	if err != nil {
 		return fmt.Errorf("postgres migrate init: %w", err)
 	}

@@ -22,7 +22,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	pgDSN := envOrDefault("POSTGRES_DSN", "pgx5://vigil:vigil@localhost:5432/vigil?sslmode=disable")
+	pgDSN := envOrDefault("POSTGRES_DSN", "postgres://vigil@localhost:5432/vigil?sslmode=disable")
 	chDSN := envOrDefault("CLICKHOUSE_DSN", "clickhouse://localhost:9000/vigil")
 	redisDSN := envOrDefault("REDIS_URL", "redis://localhost:6379/0")
 

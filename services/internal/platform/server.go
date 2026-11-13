@@ -109,8 +109,20 @@ func StartService(serviceName string, register func(r chi.Router)) {
 		_ = shutdownTracing(ctx)
 	}()
 
-	r := NewRouter(cfg, logger)
-	register(r)
+	// Main router: shared middleware + health/metrics only (no auth required).
+	r := chi.NewRouter()
+	r.Use(Recovery(logger))
+	r.Use(RequestID)
+	r.Use(RequestLogger(logger))
+	r.Get("/healthz", healthz)
+	r.Get("/readyz", readyz)
+	r.Handle("/metrics", promhttp.Handler())
+
+	// Service sub-router: the callback can freely add its own middleware and
+	// routes without chi complaining about middleware-after-routes on the main mux.
+	sub := chi.NewRouter()
+	register(sub)
+	r.Mount("/", sub)
 
 	if err := Run(cfg, r, logger); err != nil {
 		logger.Error("service error", "error", err)
