@@ -1,5 +1,38 @@
 # Progress
 
+## Task 9 — AI SRE insights, alerts and dashboard ✅
+
+**Completed: 2026-11-13**
+
+### What was built
+
+| Area | Details |
+|---|---|
+| **services/insights** | Anomaly detection (rolling MAD + EWMA), correlation engine, LLM provider interface (Anthropic impl + template fallback), engine loop, replay test |
+| **Anomaly detector** | WindowSize=60 (1 hr), MAD z-score threshold=3.5, handles constant-value series with relative floor |
+| **Correlation engine** | 15-minute window; groups adjacent anomalies into incidents; assigns title and max severity |
+| **LLM provider** | Interface `Provider.Explain(ctx, Evidence)`; Anthropic (claude-haiku-4-5-20251001, 300 tokens); template fallback (no API key required) |
+| **services/alerts** | Channel interface + Slack (working), webhook (HMAC-SHA256 signed), noop stubs (Telegram, Discord, PagerDuty, email); evaluator ties alert rules to dispatchers |
+| **DB migration 009** | `evidence JSONB`, `summary TEXT`, `ai_explanation TEXT` columns added to incidents |
+| **packages/dashboard** | Next.js 15 + Tailwind 3 + custom shadcn-style components; 16 routes (all pages + onboarding + alert-rules/new + runs/[id] trace waterfall) |
+| **Playwright E2E** | 4 tests: onboarding flow, run trace view, alert rule creation, Lighthouse — all pass |
+| **Lighthouse** | performance 74, accessibility 95, best-practices 96, seo 91 (accessibility + SEO both ≥90) |
+| **Replay test** | Go unit test: RPC outage fixture → 1 anomaly group → 1 Slack notification → pass |
+
+### Decisions
+
+- **MAD floor for constant series**: when MAD=0 and |p−median| is significant, use `max(|median|×0.01, 1e-9)` as the MAD floor so the spike is detected without false positives on truly constant data.
+- **Playwright timeout=60s**: raised from 30s to give the lighthouse test time to complete before the next test starts.
+- **Template LLM fallback**: when `ANTHROPIC_API_KEY` is absent, the insights service uses a parameterized template explanation rather than failing.
+- **Dashboard vitest config**: excludes `e2e/` from vitest patterns (Playwright specs are run via `test:e2e`, not `test`).
+
+### Open TODOs
+
+- Wire a real `MetricFetcher` from ClickHouse into the engine (fetcher=nil stub for now)
+- Add Redis Stream consumer to alerts service for realtime incident events
+- Add charts (Recharts) to Overview, Usage, and Incidents pages
+- Add dark-mode toggle button to Sidebar
+
 ## Task 8 — MCP server and framework plugins ✅
 
 **Completed: 2026-11-13**

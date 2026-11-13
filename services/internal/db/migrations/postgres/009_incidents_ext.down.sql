@@ -1,0 +1,3 @@
+ALTER TABLE incidents DROP COLUMN IF EXISTS summary;
+ALTER TABLE incidents DROP COLUMN IF EXISTS evidence;
+ALTER TABLE incidents DROP COLUMN IF EXISTS ai_explanation;
