@@ -61,3 +61,8 @@ func (c *Client) Get(ctx context.Context, key string, dst any) (bool, error) {
 func (c *Client) Delete(ctx context.Context, keys ...string) error {
 	return c.rdb.Del(ctx, keys...).Err()
 }
+
+// Publish sends a message to a pub/sub channel.
+func (c *Client) Publish(ctx context.Context, channel, message string) error {
+	return c.rdb.Publish(ctx, channel, message).Err()
+}

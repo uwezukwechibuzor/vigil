@@ -65,28 +65,46 @@ type CH interface {
 	GetRun(ctx context.Context, id string) (*clickhouse.RunDetail, error)
 }
 
+// Publisher is the subset of Redis used for pub/sub notifications.
+type Publisher interface {
+	Publish(ctx context.Context, channel, message string) error
+}
+
 // Handler implements gen.StrictServerInterface.
 type Handler struct {
 	db             DB
 	ch             CH
+	pub            Publisher
 	meter          *metering.Meter
 	analytics      *analytics.Client
 	logger         *slog.Logger
 	flightcheckURL string
 }
 
-// New constructs a Handler. db, ch, and ac may be nil (graceful degradation).
-func New(db DB, ch CH, meter *metering.Meter, logger *slog.Logger, ac *analytics.Client) *Handler {
+// New constructs a Handler. db, ch, pub, and ac may be nil (graceful degradation).
+func New(db DB, ch CH, pub Publisher, meter *metering.Meter, logger *slog.Logger, ac *analytics.Client) *Handler {
 	if logger == nil {
 		logger = slog.Default()
 	}
 	return &Handler{
 		db:             db,
 		ch:             ch,
+		pub:            pub,
 		meter:          meter,
 		analytics:      ac,
 		logger:         logger,
 		flightcheckURL: os.Getenv("FLIGHTCHECK_URL"),
+	}
+}
+
+const endpointsReloadChannel = "vigil:endpoints:reload"
+
+func (h *Handler) notifyEndpointChange(ctx context.Context) {
+	if h.pub == nil {
+		return
+	}
+	if err := h.pub.Publish(ctx, endpointsReloadChannel, "1"); err != nil {
+		h.logger.Warn("endpoint reload notify failed", "error", err)
 	}
 }
 
@@ -243,9 +261,12 @@ func (h *Handler) CreateFlightCheck(ctx context.Context, request gen.CreateFligh
 		return nil, fmt.Errorf("decode flight check response: %w", err)
 	}
 
-	// Map service verdict → API enum ("block" → "fail").
+	// Map service verdict → API enum ("go" → "pass", "block" → "fail").
 	verdict := gen.FlightCheckResultVerdict(svcResp.Verdict)
-	if svcResp.Verdict == "block" {
+	switch svcResp.Verdict {
+	case "go":
+		verdict = gen.Pass
+	case "block":
 		verdict = gen.Fail
 	}
 
@@ -435,6 +456,7 @@ func (h *Handler) CreateEndpoint(ctx context.Context, request gen.CreateEndpoint
 		h.asyncMeter(ctx, key.OrgID)
 	}
 
+	h.notifyEndpointChange(ctx)
 	return gen.CreateEndpoint201JSONResponse(endpointToGen(*ep)), nil
 }
 
@@ -477,6 +499,7 @@ func (h *Handler) DeleteEndpoint(ctx context.Context, request gen.DeleteEndpoint
 		h.asyncMeter(ctx, key.OrgID)
 	}
 
+	h.notifyEndpointChange(ctx)
 	return gen.DeleteEndpoint204Response{}, nil
 }
 

@@ -77,7 +77,7 @@ func main() {
 
 		ac := analytics.New(logger)
 
-		h := handler.New(pg, ch, meter, logger, ac)
+		h := handler.New(pg, ch, rc, meter, logger, ac)
 		strictH := gen.NewStrictHandler(h, nil)
 
 		// --- CORS ---

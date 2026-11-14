@@ -22,6 +22,14 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+# Load .env from repo root if present (never committed — gitignored).
+if [ -f "$REPO_ROOT/.env" ]; then
+  set -a
+  # shellcheck disable=SC1091
+  . "$REPO_ROOT/.env"
+  set +a
+fi
 cd "$REPO_ROOT"
 
 # Homebrew versioned postgres installs only symlink pg_ctl into /opt/homebrew/bin,
@@ -389,6 +397,11 @@ start_service() {
     FLIGHTCHECK_URL="http://127.0.0.1:$(svc_port flightcheck)" \
     INGEST_URL="http://127.0.0.1:$(svc_port ingest)" \
     OTEL_EXPORTER_OTLP_ENDPOINT="" \
+    CHAIN_1_RPC_URL="${CHAIN_1_RPC_URL:-}" \
+    CHAIN_8453_RPC_URL="${CHAIN_8453_RPC_URL:-}" \
+    CHAIN_42161_RPC_URL="${CHAIN_42161_RPC_URL:-}" \
+    CHAIN_31337_RPC_URL="${CHAIN_31337_RPC_URL:-http://127.0.0.1:8545}" \
+    FLIGHT_CHECK_BUDGET="${FLIGHT_CHECK_BUDGET:-2s}" \
     POSTHOG_API_KEY="${POSTHOG_API_KEY:-}" \
     ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-}" \
     SLACK_WEBHOOK_URL="${SLACK_WEBHOOK_URL:-}" \
