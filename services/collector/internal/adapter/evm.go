@@ -48,13 +48,15 @@ func (e *EVMAdapter) HeadBlock(ctx context.Context) (*Block, error) {
 	return e.BlockByNumber(ctx, nil)
 }
 
-// BlockByNumber fetches a block by number; nil fetches the latest.
+// BlockByNumber fetches a block header by number; nil fetches the latest.
+// Uses HeaderByNumber to avoid deserializing individual transactions,
+// which fails on EIP-4844 blob txns in older go-ethereum builds.
 func (e *EVMAdapter) BlockByNumber(ctx context.Context, number *big.Int) (*Block, error) {
-	b, err := e.client.BlockByNumber(ctx, number)
+	h, err := e.client.HeaderByNumber(ctx, number)
 	if err != nil {
 		return nil, fmt.Errorf("block by number: %w", err)
 	}
-	return evmBlockToBlock(b), nil
+	return evmHeaderToBlock(h), nil
 }
 
 // Call performs a read-only eth_call.
@@ -166,12 +168,12 @@ func (e *EVMAdapter) IsWebSocket() bool {
 
 // --- helpers ----------------------------------------------------------------
 
-func evmBlockToBlock(b *ethtypes.Block) *Block {
+func evmHeaderToBlock(h *ethtypes.Header) *Block {
 	return &Block{
-		Number:  b.NumberU64(),
-		Hash:    b.Hash().Hex(),
-		Time:    time.Unix(int64(b.Time()), 0).UTC(), // #nosec G115 -- block timestamp (seconds since epoch) fits int64 for all historical/near-future blocks
-		BaseFee: b.BaseFee(),
+		Number:  h.Number.Uint64(),
+		Hash:    h.Hash().Hex(),
+		Time:    time.Unix(int64(h.Time), 0).UTC(), // #nosec G115 -- block timestamp (seconds since epoch) fits int64 for all historical/near-future blocks
+		BaseFee: h.BaseFee,
 	}
 }
 

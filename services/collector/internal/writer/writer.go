@@ -130,6 +130,7 @@ func (w *Writer) publishEvent(ctx context.Context, r *probe.Result) error {
 
 func toChainHead(r *probe.Result) dbch.ChainHead {
 	return dbch.ChainHead{
+		Chain:      fmt.Sprintf("%d", r.ChainID),
 		EndpointID: r.EndpointID,
 		BlockNum:   uint64(r.Value),
 		ObservedAt: r.Ts,

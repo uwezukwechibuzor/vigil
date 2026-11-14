@@ -98,7 +98,7 @@ func (c *Client) GetChainHealth(ctx context.Context, chainID string) (*ChainHeal
 	var latencyP95 float64
 
 	lagRows, err := c.conn.Query(ctx,
-		`SELECT max(block_num) FROM chain_heads WHERE chain = ? AND observed_at > now() - INTERVAL 5 MINUTE`,
+		`SELECT max(block_number) FROM chain_heads WHERE chain = ? AND observed_at > now() - INTERVAL 5 MINUTE`,
 		chainID)
 	if err != nil {
 		return nil, fmt.Errorf("chain health lag query: %w", err)
