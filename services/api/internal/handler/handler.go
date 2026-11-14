@@ -24,6 +24,8 @@ import (
 
 // DB aggregates all Postgres operations used by handlers.
 type DB interface {
+	GetOrgBySlug(ctx context.Context, slug string) (*postgres.Org, error)
+	GetFirstProjectByOrgID(ctx context.Context, orgID uuid.UUID) (*postgres.Project, error)
 	ListChains(ctx context.Context) ([]postgres.Chain, error)
 	GetChainByEVMID(ctx context.Context, chainID int64) (*postgres.Chain, error)
 	ListEndpoints(ctx context.Context, projectID uuid.UUID) ([]postgres.Endpoint, error)
@@ -1244,6 +1246,39 @@ func (h *Handler) GetUsage(ctx context.Context, request gen.GetUsageRequestObjec
 		})
 	}
 	return gen.GetUsage200JSONResponse(gen.UsageList{Data: out}), nil
+}
+
+// Me returns the authenticated caller's org and default project.
+func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
+	type meResponse struct {
+		OrgID     string  `json:"org_id"`
+		ProjectID *string `json:"project_id"`
+	}
+
+	// Resolve org_id from API key or session cookie.
+	var orgID uuid.UUID
+	if key := auth.APIKeyFromContext(r.Context()); key != nil {
+		orgID = key.OrgID
+	} else if id := auth.OrgIDFromContext(r.Context()); id != "" {
+		if parsed, err := uuid.Parse(id); err == nil {
+			orgID = parsed
+		}
+	} else {
+		http.Error(w, `{"error":"unauthenticated"}`, http.StatusUnauthorized)
+		return
+	}
+
+	resp := meResponse{OrgID: orgID.String()}
+
+	if h.db != nil {
+		if proj, err := h.db.GetFirstProjectByOrgID(r.Context(), orgID); err == nil {
+			s := proj.ID.String()
+			resp.ProjectID = &s
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 // Verify Handler implements StrictServerInterface at compile time.

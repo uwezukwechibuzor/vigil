@@ -190,6 +190,12 @@ func (m *mockDB) GetUsageByOrgAndDateRange(_ context.Context, orgID uuid.UUID, _
 }
 func (m *mockDB) IncrementAPICalls(_ context.Context, _ uuid.UUID) error        { return nil }
 func (m *mockDB) InsertAuditLog(_ context.Context, _ postgres.AuditEntry) error { return nil }
+func (m *mockDB) GetOrgBySlug(_ context.Context, _ string) (*postgres.Org, error) {
+	return nil, nil
+}
+func (m *mockDB) GetFirstProjectByOrgID(_ context.Context, _ uuid.UUID) (*postgres.Project, error) {
+	return nil, nil
+}
 
 // mockCH is a no-op ClickHouse mock.
 type mockCH struct{}
@@ -218,7 +224,7 @@ func newTestServer(t *testing.T) *httptest.Server {
 	ch := &mockCH{}
 	meter := metering.New(db, nil)
 
-	h := handler.New(db, ch, meter, nil, nil)
+	h := handler.New(db, ch, nil, meter, nil, nil)
 	strictH := gen.NewStrictHandler(h, nil)
 	r := chi.NewRouter()
 	apiHandler := gen.HandlerFromMux(strictH, chi.NewRouter())

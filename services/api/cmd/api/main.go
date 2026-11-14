@@ -119,6 +119,7 @@ func main() {
 				return "", ""
 			}))
 
+			r.Get("/v1/me", h.Me)
 			r.Mount("/v1", http.MaxBytesHandler(
 				gen.HandlerFromMux(strictH, chi.NewRouter()),
 				1<<20,
