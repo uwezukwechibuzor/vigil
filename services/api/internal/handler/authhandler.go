@@ -96,7 +96,13 @@ func (h *AuthHandler) Signup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	plaintext, _, err := h.db.GenerateAPIKey(r.Context(), org.ID, nil, "default", []string{"read", "write"}, nil)
+	proj, err := h.db.CreateProject(r.Context(), org.ID, "default", "Default", "prod")
+	if err != nil {
+		writeAuthError(w, http.StatusInternalServerError, "could not create project")
+		return
+	}
+
+	plaintext, _, err := h.db.GenerateAPIKey(r.Context(), org.ID, &proj.ID, "default", []string{"read", "write"}, nil)
 	if err != nil {
 		writeAuthError(w, http.StatusInternalServerError, "could not generate API key")
 		return

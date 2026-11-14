@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/uwezukwechibuzor/vigil/services/internal/db/postgres"
 	redisdb "github.com/uwezukwechibuzor/vigil/services/internal/db/redis"
 )
@@ -137,8 +138,14 @@ func lookupKey(ctx context.Context, plaintext string, db DB, cache Cache) (*post
 			if ck.ExpiresAt != nil && ck.ExpiresAt.Before(time.Now()) {
 				return nil, errors.New("key expired")
 			}
-			// Reconstruct minimal APIKey for scope checks.
+			// Reconstruct APIKey from cached fields.
 			k := &postgres.APIKey{Scopes: ck.Scopes}
+			if id, err := uuid.Parse(ck.ID); err == nil {
+				k.ID = id
+			}
+			if orgID, err := uuid.Parse(ck.OrgID); err == nil {
+				k.OrgID = orgID
+			}
 			return k, nil
 		}
 	}
