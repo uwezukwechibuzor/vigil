@@ -227,9 +227,42 @@ func (h *Handler) CreateFlightCheck(ctx context.Context, request gen.CreateFligh
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	var result gen.FlightCheckResult
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	// The flightcheck service uses a different wire format: translate it.
+	var svcResp struct {
+		CheckID   string  `json:"check_id"`
+		Verdict   string  `json:"verdict"`
+		RiskScore float32 `json:"risk_score"`
+		LatencyMs int     `json:"latency_ms"`
+		Checks    []struct {
+			Name   string `json:"name"`
+			Status string `json:"status"`
+			Reason string `json:"reason"`
+		} `json:"checks"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&svcResp); err != nil {
 		return nil, fmt.Errorf("decode flight check response: %w", err)
+	}
+
+	// Map service verdict → API enum ("block" → "fail").
+	verdict := gen.FlightCheckResultVerdict(svcResp.Verdict)
+	if svcResp.Verdict == "block" {
+		verdict = gen.Fail
+	}
+
+	// Convert checks slice → map.
+	checksMap := make(map[string]interface{}, len(svcResp.Checks))
+	for _, c := range svcResp.Checks {
+		checksMap[c.Name] = map[string]string{"status": c.Status, "reason": c.Reason}
+	}
+	latMs := svcResp.LatencyMs
+
+	result := gen.FlightCheckResult{
+		Id:        svcResp.CheckID,
+		Verdict:   verdict,
+		Score:     svcResp.RiskScore,
+		Checks:    checksMap,
+		LatencyMs: &latMs,
+		CreatedAt: time.Now(),
 	}
 
 	key := auth.APIKeyFromContext(ctx)

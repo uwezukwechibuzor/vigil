@@ -10,7 +10,7 @@ export type AlertChannelKind = "slack" | "pagerduty" | "webhook" | "email";
 
 export interface ListMeta {
   cursor?: string | null;
-  has_more: boolean;
+  has_more?: boolean;
   total?: number;
 }
 

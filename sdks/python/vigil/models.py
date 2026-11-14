@@ -14,7 +14,7 @@ class ListMeta(BaseModel):
     """Pagination metadata."""
 
     cursor: str | None = None
-    has_more: bool
+    has_more: bool = False
     total: int | None = None
 
 
