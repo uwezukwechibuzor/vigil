@@ -97,32 +97,35 @@ func main() {
 		})
 		r.Use(corsMiddleware)
 
-		// --- auth middleware ---
-		r.Use(auth.APIKeyAuth(pg, rc))
+		// --- public routes (no auth required) ---
+		secure := getEnv("APP_ENV", "local") == "production"
+		authH := handler.NewAuthHandler(pg, secure)
+		r.Post("/auth/signup", authH.Signup)
+		r.Post("/auth/login", authH.Login)
+		r.Post("/auth/logout", authH.Logout)
 
-		// --- rate limit middleware ---
-		r.Use(ratelimit.Middleware(rc, func(req *http.Request) (key, plan string) {
-			k := auth.APIKeyFromContext(req.Context())
-			if k != nil {
-				return k.ID.String(), "free"
-			}
-			return "", ""
-		}))
-
-		// --- docs routes (served before auth enforcement) ---
 		docsHandler := docs.Handler(api.OpenAPISpec)
 		r.Handle("/docs", docsHandler)
 		r.Handle("/openapi.yaml", docsHandler)
 
-		// --- v1 API routes with request size limit ---
-		r.Mount("/v1", http.MaxBytesHandler(
-			gen.HandlerFromMux(strictH, chi.NewRouter()),
-			1<<20, // 1 MB
-		))
+		// --- protected routes (API key or session required) ---
+		r.Group(func(r chi.Router) {
+			r.Use(auth.APIKeyAuth(pg, rc))
+			r.Use(ratelimit.Middleware(rc, func(req *http.Request) (key, plan string) {
+				k := auth.APIKeyFromContext(req.Context())
+				if k != nil {
+					return k.ID.String(), "free"
+				}
+				return "", ""
+			}))
 
-		// --- data portability routes (GDPR export/delete) ---
-		r.Get("/v1/data/export", h.DataExportHandler)
-		r.Post("/v1/data/delete", h.DataDeleteHandler)
+			r.Mount("/v1", http.MaxBytesHandler(
+				gen.HandlerFromMux(strictH, chi.NewRouter()),
+				1<<20,
+			))
+			r.Get("/v1/data/export", h.DataExportHandler)
+			r.Post("/v1/data/delete", h.DataDeleteHandler)
+		})
 
 		logger.Info("api service routes registered")
 	})
